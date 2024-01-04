@@ -1,0 +1,20 @@
+Package: shiny BR_econ_dash
+Type: Package
+Title: Brazilian economy dashboard
+Version: 1.0.0
+Author: Lucas Rubbo Tesser
+Maintainer: The package maintainer <lcstesser@gmail.com>
+Description: Brazilian economy dashboard
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Imports: 
+    dplyr,
+    purrr,
+    stats,
+    sidrar,
+    lubridate,
+    rbcb
+RoxygenNote: 7.2.3
+Depends: 
+    R (>= 2.10)
