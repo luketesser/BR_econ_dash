@@ -20,9 +20,9 @@ rbcb_data <- function(){
   
   uci <- rbcb::get_series(c(uci = 24352)) # Utilização da Capacidade Instalada
   
-  expc_pib <- rbcb::get_market_expectations('annual', 'PIB Total')
+  expec_pib <- rbcb::get_market_expectations('annual', 'PIB Total')
   
-  expc_agro <- rbcb::get_market_expectations('annual', 'PIB Agropecuária')
+  expec_agro <- rbcb::get_market_expectations('annual', 'PIB Agropecuária')
   
   expec_gov <- rbcb::get_market_expectations('annual', 'PIB Despesa de consumo da administração pública')
   
@@ -38,17 +38,10 @@ rbcb_data <- function(){
   
   expec_serv <- rbcb::get_market_expectations('annual', 'PIB Serviços')
   
-  return(ibc)
-  return(uci)
-  return(expc_pib)
-  return(expc_agro)
-  return(expec_gov)
-  return(expec_c)
-  return(expec_exp)
-  return(expec_imp)
-  return(expec_fbcf)
-  return(expec_ind)
-  return(expec_serv)
+  result <- list(ibc, uci, expec_pib, expec_agro, expec_gov, expec_c, expec_exp,
+                 expec_imp, expec_fbcf, expec_ind, expec_serv)
+  
+  return(result)
   
   
 }
