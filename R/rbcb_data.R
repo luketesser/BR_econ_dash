@@ -38,10 +38,12 @@ rbcb_data <- function(){
   
   expec_serv <- rbcb::get_market_expectations('annual', 'PIB Serviços')
   
-  result <- list(ibc, uci, expec_pib, expec_agro, expec_gov, expec_c, expec_exp,
-                 expec_imp, expec_fbcf, expec_ind, expec_serv)
+  results <- list(ibc = ibc, uci = uci, expec_pib = expec_pib, expec_agro = expec_agro, 
+                 expec_gov = expec_gov, expec_c = expec_c, expec_exp = expec_exp,
+                 expec_imp = expec_imp, expec_fbcf = expec_fbcf, expec_ind = expec_ind, 
+                 expec_serv = expec_serv)
   
-  return(result)
+  return(results)
   
   
 }

@@ -68,7 +68,8 @@ sidra_data <- function(){
     dplyr::mutate(dates = as.Date(paste0(`Mês (Código)`, '01'), format = '%Y%m%d')) |> 
     dplyr::arrange(dates)
   
-  results <- list(pib, pop, pmc1, pmc2, pmc3, pmc4, pim)
+  results <- list(pib = pib, pop = pop, pmc1 = pmc1, pmc2 = pmc2, pmc3 = pmc3, 
+                  pmc4 = pmc4, pim = pim)
   
   return(results)
   
