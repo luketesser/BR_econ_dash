@@ -76,5 +76,5 @@ sidra_data <- function(){
 }
 
 
-# saveRDS()
+saveRDS(sidra, 'Data/sidra.rds')
 # readRDS()
