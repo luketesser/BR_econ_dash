@@ -40,9 +40,13 @@ sidra_data <- function(){
   
   # Donwload data through sidra API
     
-  pib <- sidrar::get_sidra(x = 1620, period = period) |> 
+  pib <- sidrar::get_sidra(x = 1621, period = period) |> 
     dplyr::mutate(dates = as.Date(paste0(`Trimestre (Código)`, '01'), format = '%Y%m%d')) |> 
     dplyr::arrange(dates) 
+  
+  pib_v <- sidrar::get_sidra(x = 1846, period = period) |> 
+    dplyr::mutate(dates = as.Date(paste0(`Trimestre (Código)`, '01'), format = '%Y%m%d')) |> 
+    dplyr::arrange(dates)
     
   pop <- sidrar::get_sidra(x = 6462, period = period, variable = '606') |> 
     dplyr::mutate(dates = as.Date(paste0(`Trimestre (Código)`, '01'), format = '%Y%m%d')) |> 
@@ -68,7 +72,7 @@ sidra_data <- function(){
     dplyr::mutate(dates = as.Date(paste0(`Mês (Código)`, '01'), format = '%Y%m%d')) |> 
     dplyr::arrange(dates)
   
-  results <- list(pib = pib, pop = pop, pmc1 = pmc1, pmc2 = pmc2, pmc3 = pmc3, 
+  results <- list(pib = pib, pib_v = pib_v, pop = pop, pmc1 = pmc1, pmc2 = pmc2, pmc3 = pmc3, 
                   pmc4 = pmc4, pim = pim)
   
   return(results)
