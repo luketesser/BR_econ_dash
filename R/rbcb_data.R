@@ -16,9 +16,9 @@
 #' 
 rbcb_data <- function(){
   
-  ibc <- rbcb::get_series(c(ibcbr = 24363))
+  ibc <- rbcb::get_series(c(ibcbr = 24364))
   
-  uci <- rbcb::get_series(c(uci = 24352)) # Utilização da Capacidade Instalada
+  uci <- rbcb::get_series(c(uci = 28561)) # Utilização da Capacidade Instalada
   
   expec_pib <- rbcb::get_market_expectations('annual', 'PIB Total')
   
@@ -47,3 +47,5 @@ rbcb_data <- function(){
   
   
 }
+
+# saveRDS(bc, 'Data/bc.rds')
