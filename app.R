@@ -65,6 +65,15 @@ gap_avg <- gap_avg |>
 ibc <- bc$ibc |>
   mutate(delta = ibcbr/lag(ibcbr, 1) - 1)
 
+expec_pib_2024 <- bc$expec_pib |>
+  filter(DataReferencia == 2024 & Data > (Sys.Date() - 252))
+
+expec_pib_2025 <- bc$expec_pib |>
+  filter(DataReferencia == 2025 & Data > (Sys.Date() - 126))
+
+expec_pib_2026 <- bc$expec_pib |>
+  filter(DataReferencia == 2026 & Data > (Sys.Date() - 63))
+
 # pmc1_margem <- sidra$pmc1 |> # Comércio Restrito (sem - Veículos, motocicletas, partes e peças. - Material de construção.)
   # filter(`Variável (Código)` == 11708) |>
 
@@ -125,6 +134,67 @@ desemp <- tibble(pdn$Valor/pean$Valor) |>  # PD/PEA
   mutate(dates = pdn$dates)
   colnames(desemp) = c('tx_desemp', 'dates')
 
+gap_des <- desemp |>
+  mutate(trend_ma = decompose(ts(tx_desemp, frequency = 4))$trend) |>
+  mutate(gap_ma = (tx_desemp/trend_ma - 1)*100)
+
+gap_desemp_ham <- yth_filter(xts(desemp$tx_desemp, order.by = desemp$dates), output = c("trend", "cycle")) |>
+  as_tibble() |>
+  mutate(dates  = desemp$dates) |>
+  mutate(gap  = y.cycle/y.trend)
+
+gap_desemp_hp_m <- hpfilter(ts(desemp$tx_desemp, frequency = 4), type = 'lambda', freq = 1600)
+
+gap_desemp_hp <- tibble(dates = desemp$dates, trend = gap_desemp_hp_m$trend, cycle = gap_desemp_hp_m$cycle) |>
+  mutate(gap = cycle/trend)
+
+priv_clt <- sidra$pnad2 |>
+  filter(`Posição na ocupação e categoria do emprego no trabalho principal (Código)` == 31722 & `Variável (Código)` == 4108)
+
+priv_s_clt <- sidra$pnad2 |>
+  filter(`Posição na ocupação e categoria do emprego no trabalho principal (Código)` == 31723 & `Variável (Código)` == 4108)
+
+domest <- sidra$pnad2 |>
+  filter(`Posição na ocupação e categoria do emprego no trabalho principal (Código)` == 31724 & `Variável (Código)` == 4108)
+
+public <- sidra$pnad2 |>
+  filter(`Posição na ocupação e categoria do emprego no trabalho principal (Código)` == 31727 & `Variável (Código)` == 4108)
+
+empregador <- sidra$pnad2 |>
+  filter(`Posição na ocupação e categoria do emprego no trabalho principal (Código)` == 96170 & `Variável (Código)` == 4108)
+
+auton <- sidra$pnad2 |>
+  filter(`Posição na ocupação e categoria do emprego no trabalho principal (Código)` == 96171 & `Variável (Código)` == 4108)
+
+fam <- sidra$pnad2 |>
+  filter(`Posição na ocupação e categoria do emprego no trabalho principal (Código)` == 31731 & `Variável (Código)` == 4108)
+
+categ <- tibble(dates = pnad_dates$date, priv_clt = priv_clt$Valor, priv_s_clt = priv_s_clt$Valor, domest = domest$Valor,
+                public = public$Valor, empregador = empregador$Valor, auton = auton$Valor, fam = fam$Valor)
+
+rend <- sidra$pnad3 |>
+  filter(`Variável (Código)` == 5932 & `Posição na ocupação e categoria do emprego no trabalho principal (Código)` == 96165)
+
+r_priv_clt <- sidra$pnad3 |>
+  filter(`Variável (Código)` == 5932 & `Posição na ocupação e categoria do emprego no trabalho principal (Código)` == 31722)
+
+r_priv_s_clt <- sidra$pnad3 |>
+  filter(`Variável (Código)` == 5932 & `Posição na ocupação e categoria do emprego no trabalho principal (Código)` == 31723)
+
+r_domest <- sidra$pnad3 |>
+  filter(`Variável (Código)` == 5932 & `Posição na ocupação e categoria do emprego no trabalho principal (Código)` == 31724)
+
+r_public <- sidra$pnad3 |>
+  filter(`Variável (Código)` == 5932 & `Posição na ocupação e categoria do emprego no trabalho principal (Código)` == 31727)
+
+r_empregador <- sidra$pnad3 |>
+  filter(`Variável (Código)` == 5932 & `Posição na ocupação e categoria do emprego no trabalho principal (Código)` == 96170)
+
+r_auton <- sidra$pnad3 |>
+  filter(`Variável (Código)` == 5932 & `Posição na ocupação e categoria do emprego no trabalho principal (Código)` == 96171)
+
+r_categ <- tibble(dates = pnad_dates$date, rend = rend$Valor, r_priv_clt = r_priv_clt$Valor, r_priv_s_clt = r_priv_s_clt$Valor,
+                  r_domest = r_domest$Valor, r_public = r_public$Valor, r_empregador = r_empregador$Valor, r_auton = r_auton$Valor)
 
 # Application UI ---------------------------------------------------------------
 
@@ -165,7 +235,7 @@ ui <- dashboardPage(
   sidebar = dashboardSidebar(
     sidebarMenu(
       menuItem("Atividade", tabName = "activity", icon = icon("money-bill-trend-up")), # fontawesome.com/search?q=chart&o=r&m=free
-      menuItem("Emprego", tabName = "emprego", icon = icon("fa-solid fa-person-digging"))
+      menuItem("Emprego", tabName = "emprego", icon = icon("person-digging"))
     )
   ),
 
@@ -188,7 +258,8 @@ ui <- dashboardPage(
           infoBox(title = "Hiato Hamilton (2017) (%)", value = round(last(gap_hamilton$gap), 2)),
           infoBox(title = "Hiato HP Filter (%)", value = round(last(gap_hp$gap), 2)),
           infoBox(title = "Hiato Média MA, HP e Hamilton", value = round(last(gap_avg$average), 2)),
-          infoBox(title = "Utilização da Capacidade Instalada", value = round(last(bc$uci$uci), 2))
+          infoBox(title = "Utilização da Capacidade Instalada", value = round(last(bc$uci$uci), 2)),
+          infoBox(title = "Mediana Expectativa Focus 2024", value = round(last(expec_pib_2024$Mediana), 2))
         ),
         fluidRow(
           shinydashboard::box(plotOutput("plot_gdp"), title = "PIB Real", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
@@ -197,7 +268,8 @@ ui <- dashboardPage(
           shinydashboard::box(plotOutput("plot_gap_h"),  title = "Hiato do Produto Hamilton (2017)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
           shinydashboard::box(plotOutput("plot_gap_hp"),  title = "Hiato do Produto Filtro HP", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
           shinydashboard::box(plotOutput("plot_gap_avg"),  title = "Hiato do Produto Média", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
-          shinydashboard::box(plotOutput("plot_uci"),  title = "Utilização da Capacidade Intalada (%)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary")
+          shinydashboard::box(plotOutput("plot_uci"),  title = "Utilização da Capacidade Intalada (%)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
+          shinydashboard::box(plotOutput("plot_expec"), title = "Mediana Expectativa Focus", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
 
       ),
@@ -211,14 +283,17 @@ ui <- dashboardPage(
           infoBox(title = "PEA (População Economicamente Ativa)", value = round(last(pean$Valor), 2)),
           infoBox(title = "PO (População Ocupada)", value = round(last(pon$Valor), 2)),
           infoBox(title = "PD (População Desocupada)", value = round(last(pdn$Valor), 2)),
-          infoBox(title = "Taxa de Desemprego % (PD/PEA)", value = round(last(desemp$tx_desemp)*100, 2))
+          infoBox(title = "Taxa de Desemprego % (PD/PEA)", value = round(last(desemp$tx_desemp)*100, 2)),
           # infoBox(title = "", value = round(last(), 2))
         ),
 
         fluidRow(
           shinydashboard::box(plotOutput("plot_desemp"), title = "Taxa de Desemprego %", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
           shinydashboard::box(plotOutput("plot_pnea"), title = "PNEA % - Pop. Não Econ. Ativa %", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_pea"), title = "PEA % - Pop. Econ. Ativa%", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          shinydashboard::box(plotOutput("plot_pea"), title = "PEA % - Pop. Econ. Ativa %", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_gap_desemp"), title = "Hiato do Desemprego (%)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_categ"), title = "Evolução Categorias de Emprego (%)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_rend_categ"), title = "Evolução Rendimento Categorias de Emprego R$", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
 
       )
@@ -399,10 +474,21 @@ server <- function(input, output){
       theme_economist()
   })
 
+  output$plot_expec <- renderPlot({
+    expec_pib_2024 |>
+      bind_rows(expec_pib_2025) |>
+      bind_rows(expec_pib_2026) |>
+      ggplot(aes(x = Data, y = Mediana, color = DataReferencia)) +
+      geom_line(linewidth = 1) +
+      labs(title = "Mediana Expectativa Focus", x = NULL, Y = NULL) +
+      theme_economist()
+  })
+
   output$plot_desemp <- renderPlot({
     desemp |>
       ggplot(aes(x = dates, y = tx_desemp*100)) +
       geom_line(linewidth = 1, color = "blue") +
+      geom_line(aes(x = dates, y = gap_des$trend_ma*100), linewidth = 1, color = "black") +
       labs(titles = "Taxa de Desemprego %", x = NULL, y = NULL) +
       theme_economist()
 
@@ -422,6 +508,45 @@ server <- function(input, output){
       ggplot(aes(x = dates, y = Valor)) +
       geom_line(linewidth = 1, color = "yellow") +
       labs(titles = "PEA % - Pop. Econ. Ativa", x = NULL, y = NULL) +
+      theme_economist()
+
+  })
+
+  output$plot_gap_desemp <- renderPlot({
+    gap_desemp_ham |>
+      ggplot(aes(x = dates, y = gap*100)) +
+      geom_line(linewidth = 1, color = "blue") +
+      geom_hline(yintercept = 0, color = 'red') +
+      labs(titles = "Hiato do Desemprego (%)", x = NULL, y = NULL ) +
+      theme_economist()
+
+  })
+
+  output$plot_categ <- renderPlot({
+    categ |>
+      ggplot(aes(x = dates)) +
+      geom_line(aes(y = priv_clt, color = "priv_clt"), linewidth = 1) +
+      geom_line(aes(y = priv_s_clt, color = "priv_s_clt"), linewidth = 1) +
+      geom_line(aes(y = domest, color = "domest"), linewidth = 1) +
+      geom_line(aes(y = public, color = "public"), linewidth = 1) +
+      geom_line(aes(y = empregador, color = "empregador"), linewidth = 1) +
+      geom_line(aes(y = auton, color = "auton"), linewidth = 1) +
+      geom_line(aes(y = fam, color = "fam"), linewidth = 1) +
+      labs(titles = "Evolução Categorias do Trabalho (%)", x = NULL, y = NULL ) +
+      theme_economist()
+
+  })
+
+  output$plot_rend_categ <- renderPlot({
+    r_categ |>
+      ggplot(aes(x = dates)) +
+      geom_line(aes(y = r_priv_clt, color = "r_priv_clt"), linewidth = 1) +
+      geom_line(aes(y = r_priv_s_clt, color = "r_priv_s_clt"), linewidth = 1) +
+      geom_line(aes(y = r_domest, color = "r_domest"), linewidth = 1) +
+      geom_line(aes(y = r_public, color = "r_public"), linewidth = 1) +
+      geom_line(aes(y = r_empregador, color = "r_empregador"), linewidth = 1) +
+      geom_line(aes(y = r_auton, color = "r_auton"), linewidth = 1) +
+      labs(titles = "Evolução Rendimento Categorias do Trabalho R$", x = NULL, y = NULL ) +
       theme_economist()
 
   })

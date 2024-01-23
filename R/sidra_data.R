@@ -67,6 +67,14 @@ sidra_data <- function(){
     dplyr::mutate(dates = as.Date(paste0(`Trimestre (Código)`, '01'), format = '%Y%m%d')) |>
     dplyr::arrange(dates)
 
+  pnad2 <- sidrar::get_sidra(x = 4097, period = period) |>
+    dplyr::mutate(dates = as.Date(paste0(`Trimestre (Código)`, '01'), format = '%Y%m%d')) |>
+    dplyr::arrange(dates)
+
+  pnad3 <- sidrar::get_sidra(x = 5440, period = period) |>
+    dplyr::mutate(dates = as.Date(paste0(`Trimestre (Código)`, '01'), format = '%Y%m%d')) |>
+    dplyr::arrange(dates)
+
   pmc1 <- sidrar::get_sidra(x = 8880, period = period_m) |> # Receita Nominal e Vol de vendas com. varej.
     dplyr::mutate(dates = as.Date(paste0(`Mês (Código)`, '01'), format = '%Y%m%d')) |>
     dplyr::arrange(dates)
@@ -87,7 +95,7 @@ sidra_data <- function(){
     dplyr::mutate(dates = as.Date(paste0(`Mês (Código)`, '01'), format = '%Y%m%d')) |>
     dplyr::arrange(dates)
 
-  results <- list(pib = pib, pib_v = pib_v, pop = pop, pnad = pnad, pmc1 = pmc1, pmc2 = pmc2, pmc3 = pmc3,
+  results <- list(pib = pib, pib_v = pib_v, pop = pop, pnad = pnad, pnad2 = pnad2, pnad3 = pnad3, pmc1 = pmc1, pmc2 = pmc2, pmc3 = pmc3,
                   pmc4 = pmc4, pim = pim)
 
   return(results)
