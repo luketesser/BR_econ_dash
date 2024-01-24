@@ -74,8 +74,14 @@ expec_pib_2025 <- bc$expec_pib |>
 expec_pib_2026 <- bc$expec_pib |>
   filter(DataReferencia == 2026 & Data > (Sys.Date() - 63))
 
-# pmc1_margem <- sidra$pmc1 |> # Comércio Restrito (sem - Veículos, motocicletas, partes e peças. - Material de construção.)
-  # filter(`Variável (Código)` == 11708) |>
+pmc_margem <- sidra$pmc2 |> # Comércio Ampliado (Inclui - Veículos, motocicletas, partes e peças. - Material de construção.)
+  filter(`Variável (Código)` == 11708)
+
+pmc_index <- sidra$pmc2 |>
+  filter(`Variável (Código)` == 7170)
+
+pim_margem <- sidra$pim |>
+  filter(`Variável (Código)` == 11601 & `Seções e atividades industriais (CNAE 2.0) (Código)` == 129314)
 
 # Emprego
 
@@ -196,6 +202,41 @@ r_auton <- sidra$pnad3 |>
 r_categ <- tibble(dates = pnad_dates$date, rend = rend$Valor, r_priv_clt = r_priv_clt$Valor, r_priv_s_clt = r_priv_s_clt$Valor,
                   r_domest = r_domest$Valor, r_public = r_public$Valor, r_empregador = r_empregador$Valor, r_auton = r_auton$Valor)
 
+ipca_nucleos <- tibble(date = filter(bc$ipca$ipca, bc$ipca$ipca$date > "2000-01-01")$date,
+                      ipca = filter(bc$ipca$ipca, bc$ipca$ipca$date > "2000-01-01")$ipca,
+                      p55 = filter(bc$ipca$n8, bc$ipca$n8$date > "2000-01-01")$n8,
+                      ex0 = filter(bc$ipca$n3, bc$ipca$n3$date > "2000-01-01")$n3,
+                      ex3 = filter(bc$ipca$n7, bc$ipca$n7$date > "2000-01-01")$n7,
+                      ms = filter(bc$ipca$n1, bc$ipca$n1$date > "2000-01-01")$n1,
+                      dp = filter(bc$ipca$n5,  bc$ipca$n5$date > "2000-01-01")$n5)
+
+ipca_nucleos_tidy <- tidyr::pivot_longer(ipca_nucleos, cols = ipca:dp)
+
+# Inércia
+## Criando matrizes que guardarão coeficientes e desvios-padrões
+p <- 2 # Parâmetros a serem guardados
+
+janela <- 48 # número de meses da janela
+
+coefs <- matrix(NA, ncol = p, nrow = length(ipca_nucleos$date) - janela)
+sd <- matrix(NA, ncol = p, nrow = length(ipca_nucleos$date) - janela)
+
+# Loop
+
+for (i in 1:nrow(coefs)){
+
+  ar1 <- forecast::Arima(ipca_nucleos$ipca[(1 + i - 1):(janela + i - 1)],
+               order = c(1,0,0))
+  coefs[i,] <- stats::coef(ar1)
+  sd[i,] <- lmtest::coeftest(ar1)[,2]
+}
+
+colnames(coefs) <- c('AR(1)', 'Intercepto')
+colnames(sd) <- c('AR(1)', 'Intercepto')
+
+inercia <- tibble(date = seq.Date(from = dplyr::nth(ipca_nucleos$date, janela + 1), to = dplyr::last(ipca_nucleos$date), by = "month"),
+                  ic1 = coefs[,1] - sd[,1], ar1 = coefs[,1], ic2 = coefs[,1] + sd[,1])
+
 # Application UI ---------------------------------------------------------------
 
 ui <- dashboardPage(
@@ -235,7 +276,8 @@ ui <- dashboardPage(
   sidebar = dashboardSidebar(
     sidebarMenu(
       menuItem("Atividade", tabName = "activity", icon = icon("money-bill-trend-up")), # fontawesome.com/search?q=chart&o=r&m=free
-      menuItem("Emprego", tabName = "emprego", icon = icon("person-digging"))
+      menuItem("Emprego", tabName = "emprego", icon = icon("person-digging")),
+      menuItem("Inflação", tabName = "inflação", icon = icon("chart-pie"))
     )
   ),
 
@@ -250,16 +292,18 @@ ui <- dashboardPage(
       tabItem(
         tabName = "activity",
         fluidRow(
-          infoBox(title = "PIB (%) Margem", value = round(last(delta_pib$delta_pib_margem)*100, 2)),
-          infoBox(title = "PIB (%) Trimestral", value = round(last(delta_pib$delta_pib_trimestral)*100, 2)),
-          infoBox(title = "PIB (%) Anual", value = round(last(delta_pib$delta_pib_anual)*100, 2)),
+          infoBox(title = "PIB (%) Margem", value = round(last(delta_pib$delta_pib_margem)*100, 2), icon = icon("chart-line")),
+          infoBox(title = "PIB (%) Trimestral", value = round(last(delta_pib$delta_pib_trimestral)*100, 2), icon = icon("chart-line")),
+          infoBox(title = "PIB (%) Anual", value = round(last(delta_pib$delta_pib_anual)*100, 2), icon = icon("chart-line")),
           infoBox(title = "IBC-BR Margem (%)", value = round(last(ibc$delta)*100, 2)),
-          # infoBox(title = "Hiato MA (%)", value = round(last(gap$gap)*100, 2)),
-          infoBox(title = "Hiato Hamilton (2017) (%)", value = round(last(gap_hamilton$gap), 2)),
-          infoBox(title = "Hiato HP Filter (%)", value = round(last(gap_hp$gap), 2)),
-          infoBox(title = "Hiato Média MA, HP e Hamilton", value = round(last(gap_avg$average), 2)),
-          infoBox(title = "Utilização da Capacidade Instalada", value = round(last(bc$uci$uci), 2)),
-          infoBox(title = "Mediana Expectativa Focus 2024", value = round(last(expec_pib_2024$Mediana), 2))
+          infoBox(title = "PMC Receita Vendas (%)", value = round(last(filter(pmc_margem, pmc_margem$`Tipos de índice (Código)` == 56735)$Valor), 2), icon = icon("file-invoice-dollar")),
+          infoBox(title = "PMC Volume Vendas (%)", value = round(last(filter(pmc_margem, pmc_margem$`Tipos de índice (Código)` == 56736)$Valor), 2), icon = icon("file-invoice-dollar")),
+          infoBox(title = "PIM Margem (%)", value = round(last(pim_margem$Valor), 2), icon = icon("industry")),
+          infoBox(title = "Hiato Hamilton (2017) (%)", value = round(last(gap_hamilton$gap), 2), icon = icon("arrows-left-right-to-line")),
+          infoBox(title = "Hiato HP Filter (%)", value = round(last(gap_hp$gap), 2), icon = icon("arrows-left-right-to-line")),
+          infoBox(title = "Hiato Média MA, HP e Hamilton", value = round(last(gap_avg$average), 2), icon = icon("arrows-left-right-to-line")),
+          infoBox(title = "Utilização da Capacidade Instalada", value = round(last(bc$uci$uci), 2), icon = icon("industry")),
+          infoBox(title = "Mediana Expectativa Focus 2024", value = round(last(expec_pib_2024$Mediana), 2), icon = icon("eye-low-vision"))
         ),
         fluidRow(
           shinydashboard::box(plotOutput("plot_gdp"), title = "PIB Real", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
@@ -269,6 +313,8 @@ ui <- dashboardPage(
           shinydashboard::box(plotOutput("plot_gap_hp"),  title = "Hiato do Produto Filtro HP", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
           shinydashboard::box(plotOutput("plot_gap_avg"),  title = "Hiato do Produto Média", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
           shinydashboard::box(plotOutput("plot_uci"),  title = "Utilização da Capacidade Intalada (%)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
+          shinydashboard::box(plotOutput("plot_pmc"),  title = "PMC - Delta (%)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
+          shinydashboard::box(plotOutput("plot_pim"),  title = "PIM - Delta (%)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
           shinydashboard::box(plotOutput("plot_expec"), title = "Mediana Expectativa Focus", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
 
@@ -278,12 +324,12 @@ ui <- dashboardPage(
       tabItem(
         tabName = "emprego",
         fluidRow(
-          infoBox(title = "População", value = round(last(pop$Valor), 2)),
-          infoBox(title = "PIA (População em Idade Ativa)", value = round(last(pian$Valor), 2)),
-          infoBox(title = "PEA (População Economicamente Ativa)", value = round(last(pean$Valor), 2)),
-          infoBox(title = "PO (População Ocupada)", value = round(last(pon$Valor), 2)),
-          infoBox(title = "PD (População Desocupada)", value = round(last(pdn$Valor), 2)),
-          infoBox(title = "Taxa de Desemprego % (PD/PEA)", value = round(last(desemp$tx_desemp)*100, 2)),
+          infoBox(title = "População", value = round(last(pop$Valor), 2), icon = icon("people-group")),
+          infoBox(title = "PIA (População em Idade Ativa)", value = round(last(pian$Valor), 2), icon = icon("people-group")),
+          infoBox(title = "PEA (População Economicamente Ativa)", value = round(last(pean$Valor), 2), icon = icon("person-running")),
+          infoBox(title = "PO (População Ocupada)", value = round(last(pon$Valor), 2), icon = icon("briefcase")),
+          infoBox(title = "PD (População Desocupada)", value = round(last(pdn$Valor), 2), icon = icon("person-praying")),
+          infoBox(title = "Taxa de Desemprego % (PD/PEA)", value = round(last(desemp$tx_desemp)*100, 2), icon = icon("chart-column")),
           # infoBox(title = "", value = round(last(), 2))
         ),
 
@@ -296,7 +342,21 @@ ui <- dashboardPage(
           shinydashboard::box(plotOutput("plot_rend_categ"), title = "Evolução Rendimento Categorias de Emprego R$", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
 
+      ),
+
+      # Inflação
+      tabItem(
+        tabName = "inflação",
+        fluidRow(
+          infoBox(title = "IPCA Margem", value = round(last(ipca_nucleos$ipca), 2), icon = icon("tag"))
+        ),
+
+        fluidRow(
+          shinydashboard::box(plotOutput("plot_ipca_nucleos"), title = "IPCA e Núcleos Selecionados", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_ipca_inercia"), title = "Inércia IPCA", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+        )
       )
+
     ) # End of tabItems
 
   ), # End of Dashboard Body
@@ -474,6 +534,24 @@ server <- function(input, output){
       theme_economist()
   })
 
+  output$plot_pmc <- renderPlot({
+    pmc_margem |>
+      filter(dates > "2022-01-01") |>
+      ggplot(aes(x = dates, y = Valor, color = `Tipos de índice`)) +
+      geom_line(linewidth = 1) +
+      labs(title = "PMC - Delta (%)", x = NULL, Y = NULL) +
+      theme_economist()
+  })
+
+  output$plot_pim <- renderPlot({
+    pim_margem |>
+      filter(dates > "2022-01-01") |>
+      ggplot(aes(x = dates, y = Valor)) +
+      geom_line(linewidth = 1, color = "brown") +
+      labs(title = "PIM - Delta (%)", x = NULL, Y = NULL) +
+      theme_economist()
+  })
+
   output$plot_expec <- renderPlot({
     expec_pib_2024 |>
       bind_rows(expec_pib_2025) |>
@@ -549,6 +627,30 @@ server <- function(input, output){
       labs(titles = "Evolução Rendimento Categorias do Trabalho R$", x = NULL, y = NULL ) +
       theme_economist()
 
+  })
+
+  output$plot_ipca_nucleos <- renderPlot({
+
+    ipca_line <- ipca_nucleos_tidy |>
+      filter(name == "ipca")
+
+    ipca_nucleos_tidy |>
+      ggplot(aes(x = date, y = value, color = name)) +
+      geom_line() +
+      geom_line(data = ipca_line, aes(x = date, y = value), linewidth = .9) +
+      labs(title = "IPCA e Núcleos Acompanhados", x = NULL, y = NULL, color = NULL) +
+      theme_economist()
+  })
+
+  output$plot_ipca_inercia <- renderPlot({
+
+    inercia |>
+      ggplot(aes(x = date)) +
+      geom_ribbon(aes(ymin = ic1, ymax = ic2)) +
+      geom_line(aes(y = ar1), linewidth = 1, color = "grey70") +
+      geom_hline(aes(yintercept = mean(ar1)), color = "red") +
+      labs(title = "Inércia IPCA", x = NULL, y = NULL) +
+      theme_economist()
   })
 
 

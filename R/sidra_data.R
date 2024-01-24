@@ -95,8 +95,12 @@ sidra_data <- function(){
     dplyr::mutate(dates = as.Date(paste0(`Mês (Código)`, '01'), format = '%Y%m%d')) |>
     dplyr::arrange(dates)
 
+  ipca <- sidrar::get_sidra(x = 7060, period = period_m, variable = 63) |>
+    dplyr::mutate(dates = as.Date(paste0(`Mês (Código)`, '01'), format = '%Y%m%d')) |>
+    dplyr::arrange(dates)
+
   results <- list(pib = pib, pib_v = pib_v, pop = pop, pnad = pnad, pnad2 = pnad2, pnad3 = pnad3, pmc1 = pmc1, pmc2 = pmc2, pmc3 = pmc3,
-                  pmc4 = pmc4, pim = pim)
+                  pmc4 = pmc4, pim = pim, ipca = ipca)
 
   return(results)
 
