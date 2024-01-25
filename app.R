@@ -202,6 +202,7 @@ r_auton <- sidra$pnad3 |>
 r_categ <- tibble(dates = pnad_dates$date, rend = rend$Valor, r_priv_clt = r_priv_clt$Valor, r_priv_s_clt = r_priv_s_clt$Valor,
                   r_domest = r_domest$Valor, r_public = r_public$Valor, r_empregador = r_empregador$Valor, r_auton = r_auton$Valor)
 
+# IPCA
 ipca_nucleos <- tibble(date = filter(bc$ipca$ipca, bc$ipca$ipca$date > "2000-01-01")$date,
                       ipca = filter(bc$ipca$ipca, bc$ipca$ipca$date > "2000-01-01")$ipca,
                       p55 = filter(bc$ipca$n8, bc$ipca$n8$date > "2000-01-01")$n8,
@@ -211,6 +212,11 @@ ipca_nucleos <- tibble(date = filter(bc$ipca$ipca, bc$ipca$ipca$date > "2000-01-
                       dp = filter(bc$ipca$n5,  bc$ipca$n5$date > "2000-01-01")$n5)
 
 ipca_nucleos_tidy <- tidyr::pivot_longer(ipca_nucleos, cols = ipca:dp)
+
+ipca_acum <- bc$ipca$ipca |>
+  mutate(plus1 = ipca/100 + 1) |>
+  group_by(year(date)) |>
+  summarise(annual = round((prod(plus1) - 1)*100, 2))
 
 # Inércia
 ## Criando matrizes que guardarão coeficientes e desvios-padrões
@@ -223,7 +229,7 @@ sd <- matrix(NA, ncol = p, nrow = length(ipca_nucleos$date) - janela)
 
 # Loop
 
-for (i in 1:nrow(coefs)){
+for (i in 1:nrow(coefs)) {
 
   ar1 <- forecast::Arima(ipca_nucleos$ipca[(1 + i - 1):(janela + i - 1)],
                order = c(1,0,0))
@@ -236,6 +242,24 @@ colnames(sd) <- c('AR(1)', 'Intercepto')
 
 inercia <- tibble(date = seq.Date(from = dplyr::nth(ipca_nucleos$date, janela + 1), to = dplyr::last(ipca_nucleos$date), by = "month"),
                   ic1 = coefs[,1] - sd[,1], ar1 = coefs[,1], ic2 = coefs[,1] + sd[,1])
+
+ipca_desag <- tibble(date = filter(bc$ipca_desag$al, date > "2000-01-01")$date,
+                     aliment = filter(bc$ipca_desag$al, date > "2000-01-01")$al,
+                     comun =  filter(bc$ipca_desag$comun, date > "2000-01-01")$comun,
+                     educ = filter(bc$ipca_desag$educ, date > "2000-01-01")$educ,
+                     hab = filter(bc$ipca_desag$hab, date > "2000-01-01")$hab,
+                     pessoais = filter(bc$ipca_desag$pess, date > "2000-01-01")$pess,
+                     residenc = filter(bc$ipca_desag$res, date > "2000-01-01")$res,
+                     saude =  filter(bc$ipca_desag$saud, date > "2000-01-01")$saud,
+                     transp = filter(bc$ipca_desag$trasp, date > "2000-01-01")$trasp)
+ipca_desag_tidy <- tidyr::pivot_longer(ipca_desag, cols = aliment:transp)
+
+ipca_sidra <- as_tibble(sidra$ipca)
+
+ipca_difu <- ipca_sidra |>
+  group_by(dates) |>
+  summarise(diffusion = sum(Valor > 0)/length(Valor))
+
 
 # Application UI ---------------------------------------------------------------
 
@@ -348,12 +372,16 @@ ui <- dashboardPage(
       tabItem(
         tabName = "inflação",
         fluidRow(
-          infoBox(title = "IPCA Margem", value = round(last(ipca_nucleos$ipca), 2), icon = icon("tag"))
+          infoBox(title = "IPCA Margem", value = round(last(ipca_nucleos$ipca), 2), icon = icon("tag")),
+          infoBox(title = "Inércia", value = round(dplyr::last(inercia$ar1),2), icon = icon("lines-leaning")),
+          infoBox(title = "índice de Difusão", value = round(dplyr::last(ipca_difu$diffusion), 2), icon = icon("users-rays"))
         ),
 
         fluidRow(
           shinydashboard::box(plotOutput("plot_ipca_nucleos"), title = "IPCA e Núcleos Selecionados", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_ipca_inercia"), title = "Inércia IPCA", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          shinydashboard::box(plotOutput("plot_ipca_inercia"), title = "Inércia IPCA", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_ipca_desag"), title = "IPCA - Grupos", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_ipca_difu"), title = "índice de Difusão", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
       )
 
@@ -632,13 +660,26 @@ server <- function(input, output){
   output$plot_ipca_nucleos <- renderPlot({
 
     ipca_line <- ipca_nucleos_tidy |>
-      filter(name == "ipca")
+      filter(name == "ipca" & date > "2022-01-01")
 
     ipca_nucleos_tidy |>
+      filter(date > "2022-01-01") |>
       ggplot(aes(x = date, y = value, color = name)) +
       geom_line() +
       geom_line(data = ipca_line, aes(x = date, y = value), linewidth = .9) +
       labs(title = "IPCA e Núcleos Acompanhados", x = NULL, y = NULL, color = NULL) +
+      theme_economist()
+  })
+
+  output$plot_ipca_desag <- renderPlot({
+
+    ipca_desag_tidy |>
+      filter(date > "2010-01-01") |>
+      ggplot(aes(x = date, y = value, color = name)) +
+      geom_line() +
+      geom_smooth(data = filter(ipca_desag_tidy, ipca_desag_tidy$date > Sys.Date() - 712), method = "lm", formula = y ~ x, color = "brown") +
+      facet_wrap(ncol = 2, vars(name), scales = "free") +
+      labs(x = NULL, y = NULL, color = NULL) +
       theme_economist()
   })
 
@@ -650,6 +691,15 @@ server <- function(input, output){
       geom_line(aes(y = ar1), linewidth = 1, color = "grey70") +
       geom_hline(aes(yintercept = mean(ar1)), color = "red") +
       labs(title = "Inércia IPCA", x = NULL, y = NULL) +
+      theme_economist()
+  })
+
+  output$plot_ipca_difu <- renderPlot({
+    ipca_difu |>
+      ggplot(aes(x = dates, y = diffusion)) +
+      geom_line(linewidth = 1, color = "gray35") +
+      geom_hline(aes(yintercept = mean(diffusion)), color = "red") +
+      labs(title = "Índice de Difusão", x = NULL, y = NULL) +
       theme_economist()
   })
 
