@@ -42,10 +42,15 @@ rbcb_data <- function(){
 
   expec_serv <- rbcb::get_market_expectations('annual', 'PIB Serviços')
 
+  expec_ipca <- rbcb::get_market_expectations('annual', 'IPCA')
+
+  expec_ipca_top5 <- rbcb::get_market_expectations('top5s-annual', 'IPCA')
+
+
   results <- list(ibc = ibc, uci = uci, ipca = ipca, ipca_desag = ipca_desag, expec_pib = expec_pib, expec_agro = expec_agro,
                  expec_gov = expec_gov, expec_c = expec_c, expec_exp = expec_exp,
                  expec_imp = expec_imp, expec_fbcf = expec_fbcf, expec_ind = expec_ind,
-                 expec_serv = expec_serv)
+                 expec_serv = expec_serv, expec_ipca = expec_ipca, expec_ipca_top5 = expec_ipca_top5)
 
   return(results)
 

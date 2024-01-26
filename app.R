@@ -218,6 +218,11 @@ ipca_acum <- bc$ipca$ipca |>
   group_by(year(date)) |>
   summarise(annual = round((prod(plus1) - 1)*100, 2))
 
+ipca_12m <- bc$ipca$ipca |>
+  mutate(plus1 = ipca/100 + 1)
+
+ipca_yearly = tibble(yearly = RcppRoll::roll_prod(ipca_12m$plus1, n = 12) - 1)*100
+
 # Inércia
 ## Criando matrizes que guardarão coeficientes e desvios-padrões
 p <- 2 # Parâmetros a serem guardados
@@ -259,6 +264,20 @@ ipca_sidra <- as_tibble(sidra$ipca)
 ipca_difu <- ipca_sidra |>
   group_by(dates) |>
   summarise(diffusion = sum(Valor > 0)/length(Valor))
+
+expec_ipca_2024 <- bc$expec_ipca |>
+  filter(DataReferencia == 2024 & Data > (Sys.Date() - 252))
+
+expec_ipca_2025 <- bc$expec_ipca |>
+  filter(DataReferencia == 2025 & Data > (Sys.Date() - 252))
+
+expec_ipca_2026 <- bc$expec_ipca |>
+  filter(DataReferencia == 2026 & Data > (Sys.Date() - 252))
+
+expec_ipca_top5 <- bc$expec_ipca_top5
+
+expec_ipca_top5_2024 <- expec_ipca_top5 |>
+  filter(DataReferencia == 2024 & tipoCalculo == 'M')
 
 
 # Application UI ---------------------------------------------------------------
@@ -374,14 +393,24 @@ ui <- dashboardPage(
         fluidRow(
           infoBox(title = "IPCA Margem", value = round(last(ipca_nucleos$ipca), 2), icon = icon("tag")),
           infoBox(title = "Inércia", value = round(dplyr::last(inercia$ar1),2), icon = icon("lines-leaning")),
-          infoBox(title = "índice de Difusão", value = round(dplyr::last(ipca_difu$diffusion), 2), icon = icon("users-rays"))
+          infoBox(title = "índice de Difusão", value = round(dplyr::last(ipca_difu$diffusion), 2), icon = icon("users-rays")),
+          infoBox(title = "IPCA Acumulado Ano", value = round(dplyr::last(ipca_acum$annual), 2), icon = icon("chart-line")),
+          infoBox(title = "IPCA Acumulado 12m", value = round(dplyr::last(yearly), 2), icon = icon("chart-line")),
+          infoBox(title = "Mediana Expectativas 2024", value = round(dplyr::last(expec_ipca_2024$Mediana), 2), icon = icon("eye-low-vision")),
+          infoBox(title = "Mediana Expectativas 2025", value = round(dplyr::last(expec_ipca_2025$Mediana), 2), icon = icon("eye-low-vision")),
+          infoBox(title = "Mediana Expectativas 2026", value = round(dplyr::last(expec_ipca_2026$Mediana), 2), icon = icon("eye-low-vision")),
+          infoBox(title = "Mediana Expectativas 2024 Top 5 M", value = round(dplyr::last(expec_ipca_top5_2024$Mediana), 2), icon = icon("eye-low-vision"))
+
         ),
 
         fluidRow(
           shinydashboard::box(plotOutput("plot_ipca_nucleos"), title = "IPCA e Núcleos Selecionados", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
           shinydashboard::box(plotOutput("plot_ipca_inercia"), title = "Inércia IPCA", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
           shinydashboard::box(plotOutput("plot_ipca_desag"), title = "IPCA - Grupos", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_ipca_difu"), title = "índice de Difusão", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          shinydashboard::box(plotOutput("plot_ipca_difu"), title = "índice de Difusão", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_ipca_acum"), title = "IPCA Acumulado no Ano", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_ipca_expec"), title = "Expectativas IPCA (Mediana)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_ipca_expec_top5"), title = "Expectativas IPCA Top 5 (Mediana)", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
       )
 
@@ -584,9 +613,10 @@ server <- function(input, output){
     expec_pib_2024 |>
       bind_rows(expec_pib_2025) |>
       bind_rows(expec_pib_2026) |>
+      filter(baseCalculo == 0) |>
       ggplot(aes(x = Data, y = Mediana, color = DataReferencia)) +
       geom_line(linewidth = 1) +
-      labs(title = "Mediana Expectativa Focus", x = NULL, Y = NULL) +
+      labs(title = "Mediana Expectativa Focus", x = NULL, Y = NULL, color = NULL) +
       theme_economist()
   })
 
@@ -683,6 +713,15 @@ server <- function(input, output){
       theme_economist()
   })
 
+  output$plot_ipca_acum <- renderPlot({
+    ipca_acum |>
+      filter(`year(date)` > "2000-01-01") |>
+      ggplot(aes(x = `year(date)`, y = annual)) +
+      geom_line(linewidth = 1, color = "darkblue") +
+      labs(title = "IPCA Acumulado no Ano", x = NULL, y = NULL) +
+      theme_economist()
+  })
+
   output$plot_ipca_inercia <- renderPlot({
 
     inercia |>
@@ -700,6 +739,24 @@ server <- function(input, output){
       geom_line(linewidth = 1, color = "gray35") +
       geom_hline(aes(yintercept = mean(diffusion)), color = "red") +
       labs(title = "Índice de Difusão", x = NULL, y = NULL) +
+      theme_economist()
+  })
+
+  output$plot_ipca_expec <- renderPlot({
+    expec_ipca |>
+      filter(Data > Sys.Date() - 180 & baseCalculo == 0) |>
+      ggplot(aes(x = Data, y = Mediana, color = DataReferencia)) +
+      geom_line(linewidth = 1) +
+      labs(title = "Expectativas IPCA (Mediana)", x = NULL, y = NULL, color = NULL) +
+      theme_economist()
+  })
+
+  output$plot_ipca_expec_top5 <- renderPlot({
+    expec_ipca_top5 |>
+      filter(Data > Sys.Date() - 180 & tipoCalculo == "M") |>
+      ggplot(aes(x = Data, y = Mediana, color = DataReferencia)) +
+      geom_line(linewidth = 1) +
+      labs(title = "Expectativas IPCA Top 5 (Mediana)", x = NULL, y = NULL, color = NULL) +
       theme_economist()
   })
 
