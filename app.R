@@ -395,7 +395,7 @@ ui <- dashboardPage(
           infoBox(title = "Inércia", value = round(dplyr::last(inercia$ar1),2), icon = icon("lines-leaning")),
           infoBox(title = "índice de Difusão", value = round(dplyr::last(ipca_difu$diffusion), 2), icon = icon("users-rays")),
           infoBox(title = "IPCA Acumulado Ano", value = round(dplyr::last(ipca_acum$annual), 2), icon = icon("chart-line")),
-          infoBox(title = "IPCA Acumulado 12m", value = round(dplyr::last(yearly), 2), icon = icon("chart-line")),
+          infoBox(title = "IPCA Acumulado 12m", value = round(dplyr::last(ipca_yearly$yearly), 2), icon = icon("chart-line")),
           infoBox(title = "Mediana Expectativas 2024", value = round(dplyr::last(expec_ipca_2024$Mediana), 2), icon = icon("eye-low-vision")),
           infoBox(title = "Mediana Expectativas 2025", value = round(dplyr::last(expec_ipca_2025$Mediana), 2), icon = icon("eye-low-vision")),
           infoBox(title = "Mediana Expectativas 2026", value = round(dplyr::last(expec_ipca_2026$Mediana), 2), icon = icon("eye-low-vision")),
@@ -743,7 +743,7 @@ server <- function(input, output){
   })
 
   output$plot_ipca_expec <- renderPlot({
-    expec_ipca |>
+    bc$expec_ipca |>
       filter(Data > Sys.Date() - 180 & baseCalculo == 0) |>
       ggplot(aes(x = Data, y = Mediana, color = DataReferencia)) +
       geom_line(linewidth = 1) +
