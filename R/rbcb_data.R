@@ -46,11 +46,14 @@ rbcb_data <- function(){
 
   expec_ipca_top5 <- rbcb::get_market_expectations('top5s-annual', 'IPCA')
 
+  selic <- rbcb::get_series(c(meta = 432, efetiva = 1178), start_date = "2003-01-01", end_date = Sys.Date())
+
+  expec_selic <- rbcb::get_market_expectations('annual', 'Selic', start_date = Sys.Date() - 365, end_date = Sys.Date())
 
   results <- list(ibc = ibc, uci = uci, ipca = ipca, ipca_desag = ipca_desag, expec_pib = expec_pib, expec_agro = expec_agro,
                  expec_gov = expec_gov, expec_c = expec_c, expec_exp = expec_exp,
                  expec_imp = expec_imp, expec_fbcf = expec_fbcf, expec_ind = expec_ind,
-                 expec_serv = expec_serv, expec_ipca = expec_ipca, expec_ipca_top5 = expec_ipca_top5)
+                 expec_serv = expec_serv, expec_ipca = expec_ipca, expec_ipca_top5 = expec_ipca_top5, selic = selic, expec_selic = expec_selic)
 
   return(results)
 

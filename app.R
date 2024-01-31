@@ -27,6 +27,8 @@ sidra <- readRDS('Data/sidra.rds')
 
 bc <- readRDS('Data/bc.rds')
 
+ipea <- readRDS('Data/ipea.rds')
+
 ymd <- "2023-09-01" # last trimester of available data (CNT). Must automatize.
 
 # Values for Info boxes ------------------------------------------------
@@ -279,6 +281,23 @@ expec_ipca_top5 <- bc$expec_ipca_top5
 expec_ipca_top5_2024 <- expec_ipca_top5 |>
   filter(DataReferencia == 2024 & tipoCalculo == 'M')
 
+# Monetário
+
+expec_selic_2024 <- bc$expec_selic |>
+  filter(DataReferencia == 2024 & baseCalculo == 0)
+
+expec_selic_2025 <- bc$expec_selic |>
+  filter(DataReferencia == 2025 & baseCalculo == 0)
+
+expec_selic_2026 <- bc$expec_selic |>
+  filter(DataReferencia == 2026 & baseCalculo == 0)
+
+fed_funds <- ipea$fed_funds |>
+  filter(date > "2003-01-01") |>
+  right_join(y = bc$selic$meta, join_by(date == date)) |>
+  filter(!is.na(code)) |>
+  mutate(diff = ((1 + meta/100)/(1 + value/100) - 1)*100)
+
 
 # Application UI ---------------------------------------------------------------
 
@@ -320,7 +339,8 @@ ui <- dashboardPage(
     sidebarMenu(
       menuItem("Atividade", tabName = "activity", icon = icon("money-bill-trend-up")), # fontawesome.com/search?q=chart&o=r&m=free
       menuItem("Emprego", tabName = "emprego", icon = icon("person-digging")),
-      menuItem("Inflação", tabName = "inflação", icon = icon("chart-pie"))
+      menuItem("Inflação", tabName = "inflação", icon = icon("chart-pie")),
+      menuItem("Política Monetária", tabName = "mon", icon = icon("dollar-sign"))
     )
   ),
 
@@ -412,6 +432,24 @@ ui <- dashboardPage(
           shinydashboard::box(plotOutput("plot_ipca_expec"), title = "Expectativas IPCA (Mediana)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
           shinydashboard::box(plotOutput("plot_ipca_expec_top5"), title = "Expectativas IPCA Top 5 (Mediana)", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
+      ),
+
+      tabItem(
+        tabName = "mon",
+        fluidRow(
+          infoBox(title = "Selic Meta", value = round(last(bc$selic$meta$meta), 2), icon = icon("dollar-sign")),
+          infoBox(title = "Focus 2024", value = round(last(expec_selic_2024$Mediana), 2), icon = icon("dollar-sign")),
+          infoBox(title = "Focus 2025", value = round(last(expec_selic_2025$Mediana), 2), icon = icon("dollar-sign")),
+          infoBox(title = "Focus 2026", value = round(last(expec_selic_2026$Mediana), 2), icon = icon("dollar-sign")),
+          infoBox(title = "Diferencial de Juros BR - EUA", value = round(last(fed_funds$diff)), icon = icon("arrows-left-right-to-line"))
+        ),
+
+        fluidRow(
+          shinydashboard::box(plotOutput("plot_selic"), title = "Selic Meta", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_selic_expec"), title = "Expectativa Selic", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_selic_diff"), title = "Diferencial de Juros", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+        )
+
       )
 
     ) # End of tabItems
@@ -758,6 +796,39 @@ server <- function(input, output){
       geom_line(linewidth = 1) +
       labs(title = "Expectativas IPCA Top 5 (Mediana)", x = NULL, y = NULL, color = NULL) +
       theme_economist()
+  })
+
+  output$plot_selic <- renderPlot({
+
+    bc$selic$meta |>
+      ggplot(aes(x = date, y = meta)) +
+      geom_line(linewidth = 1) +
+      labs(x = NULL, y = "SELIC (%)") +
+      theme_economist()
+
+  })
+
+  output$plot_selic_expec <- renderPlot({
+
+    bc$expec_selic |>
+      filter(baseCalculo == 0 & DataReferencia == c(2024, 2025, 2026)) |>
+      ggplot(aes(x = Data, y = Mediana, color = DataReferencia)) +
+      geom_line(linewidth = 1) +
+      labs(x = NULL, y = "SELIC (%)", color = NULL) +
+      theme_economist()
+
+  })
+
+  output$plot_selic_diff <- renderPlot({
+
+    fed_funds |>
+      filter(date > "2006-01-01") |>
+      ggplot(aes(x = date, y = diff)) +
+      geom_line(linewidth = 1) +
+      geom_hline(aes(yintercept = mean(diff)), color = "red") +
+      labs(x = NULL, y = "Diferencial (%)") +
+      theme_economist()
+
   })
 
 
