@@ -1,0 +1,12 @@
+name: BR_econ_dash
+title: BR_econ_dash
+username: tesser
+account: tesser
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 11105350
+bundleId: 8235419
+url: https://tesser.shinyapps.io/BR_econ_dash/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

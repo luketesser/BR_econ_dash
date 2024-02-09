@@ -18,6 +18,9 @@ library(cowplot)
 library(forecast)
 library(neverhpfilter)
 library(mFilter)
+library(bizdays)
+library(alphavantager)
+library(quantmod)
 # source("R/sidra_data.R")
 # source("R/rbcb_data.R")
 
@@ -28,6 +31,8 @@ sidra <- readRDS('Data/sidra.rds')
 bc <- readRDS('Data/bc.rds')
 
 ipea <- readRDS('Data/ipea.rds')
+
+avg <- readRDS('Data/avg.rds')
 
 ymd <- "2023-09-01" # last trimester of available data (CNT). Must automatize.
 
@@ -204,6 +209,8 @@ r_auton <- sidra$pnad3 |>
 r_categ <- tibble(dates = pnad_dates$date, rend = rend$Valor, r_priv_clt = r_priv_clt$Valor, r_priv_s_clt = r_priv_s_clt$Valor,
                   r_domest = r_domest$Valor, r_public = r_public$Valor, r_empregador = r_empregador$Valor, r_auton = r_auton$Valor)
 
+caged <- ipea$caged
+
 # IPCA
 ipca_nucleos <- tibble(date = filter(bc$ipca$ipca, bc$ipca$ipca$date > "2000-01-01")$date,
                       ipca = filter(bc$ipca$ipca, bc$ipca$ipca$date > "2000-01-01")$ipca,
@@ -224,6 +231,12 @@ ipca_12m <- bc$ipca$ipca |>
   mutate(plus1 = ipca/100 + 1)
 
 ipca_yearly = tibble(yearly = RcppRoll::roll_prod(ipca_12m$plus1, n = 12) - 1)*100
+
+ipca_expec_margem <- filter(bc$expec_ipca_m, base::as.Date(paste0("01/", DataReferencia), format = "%d/%m/%Y") == last(ipca_nucleos$date)) |>
+  filter(Data == base::max(Data) & baseCalculo == 0)
+
+ipca_expec_margem_top5 <- filter(bc$expec_ipca_m_top5, base::as.Date(paste0("01/", DataReferencia), format = "%d/%m/%Y") == last(ipca_nucleos$date)) |>
+  filter(Data == base::max(Data) & tipoCalculo == "C")
 
 # Inércia
 ## Criando matrizes que guardarão coeficientes e desvios-padrões
@@ -298,6 +311,35 @@ fed_funds <- ipea$fed_funds |>
   filter(!is.na(code)) |>
   mutate(diff = ((1 + meta/100)/(1 + value/100) - 1)*100)
 
+yc_anbima <- GetTDData::get.yield.curve()
+
+# Fiscal
+
+prim <- filter(bc$fiscal$Governos_Municipais_primario, date > "2003-01-01") |>
+  full_join(filter(bc$fiscal$Empresas_Estatais_primario, date > "2003-01-01")) |>
+  full_join(filter(bc$fiscal$Governo_Federal_primario, date > "2003-01-01")) |>
+  full_join(filter(bc$fiscal$Governos_Estaduais_primario, date > "2003-01-01")) |>
+  full_join(filter(bc$fiscal$INSS_primario, date > "2003-01-01")) |>
+  full_join(filter(bc$fiscal$Setor_Publico_Consolidado_primario, date > "2003-01-01"))
+
+juros <- filter(bc$fiscal$Governos_Municipais_juros, date > "2003-01-01") |>
+  full_join(filter(bc$fiscal$Empresas_Estatais_juros, date > "2003-01-01")) |>
+  full_join(filter(bc$fiscal$Governo_Federal_juros, date > "2003-01-01")) |>
+  full_join(filter(bc$fiscal$Governos_Estaduais_juros, date > "2003-01-01")) |>
+  full_join(filter(bc$fiscal$Setor_Publico_Consolidado_juros, date > "2003-01-01"))
+
+nominal <- filter(bc$fiscal$Governos_Municipais_nominal, date > "2003-01-01") |>
+  full_join(filter(bc$fiscal$Empresas_Estatais_nominal, date > "2003-01-01")) |>
+  full_join(filter(bc$fiscal$Governo_Federal_Nominal, date > "2003-01-01")) |>
+  full_join(filter(bc$fiscal$Governos_Estaduais_nominal, date > "2003-01-01")) |>
+  full_join(filter(bc$fiscal$Setor_Publico_Consolidado_nominal, date > "2003-01-01"))
+
+# Externo
+
+yc_us <- avg
+
+
+
 
 # Application UI ---------------------------------------------------------------
 
@@ -340,7 +382,9 @@ ui <- dashboardPage(
       menuItem("Atividade", tabName = "activity", icon = icon("money-bill-trend-up")), # fontawesome.com/search?q=chart&o=r&m=free
       menuItem("Emprego", tabName = "emprego", icon = icon("person-digging")),
       menuItem("Inflação", tabName = "inflação", icon = icon("chart-pie")),
-      menuItem("Política Monetária", tabName = "mon", icon = icon("dollar-sign"))
+      menuItem("Política Monetária", tabName = "mon", icon = icon("dollar-sign")),
+      menuItem("Fiscal", tabName = "fiscal", icon = icon("scale-unbalanced")),
+      menuItem("Externo", tabName = "externo", icon = icon("globe"))
     )
   ),
 
@@ -402,7 +446,8 @@ ui <- dashboardPage(
           shinydashboard::box(plotOutput("plot_pea"), title = "PEA % - Pop. Econ. Ativa %", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
           shinydashboard::box(plotOutput("plot_gap_desemp"), title = "Hiato do Desemprego (%)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
           shinydashboard::box(plotOutput("plot_categ"), title = "Evolução Categorias de Emprego (%)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_rend_categ"), title = "Evolução Rendimento Categorias de Emprego R$", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          shinydashboard::box(plotOutput("plot_rend_categ"), title = "Evolução Rendimento Categorias de Emprego R$", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_caged"), title = "Caged Saldo", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
 
       ),
@@ -412,6 +457,8 @@ ui <- dashboardPage(
         tabName = "inflação",
         fluidRow(
           infoBox(title = "IPCA Margem", value = round(last(ipca_nucleos$ipca), 2), icon = icon("tag")),
+          infoBox(title = "IPCA Margem Expectativa", value = ipca_expec_margem$Mediana, icon = icon("eye-low-vision")),
+          infoBox(title = "IPCA Margem Expectativa Top 5", value = ipca_expec_margem_top5$Mediana, icon = icon("eye-low-vision")),
           infoBox(title = "Inércia", value = round(dplyr::last(inercia$ar1),2), icon = icon("lines-leaning")),
           infoBox(title = "índice de Difusão", value = round(dplyr::last(ipca_difu$diffusion), 2), icon = icon("users-rays")),
           infoBox(title = "IPCA Acumulado Ano", value = round(dplyr::last(ipca_acum$annual), 2), icon = icon("chart-line")),
@@ -419,7 +466,8 @@ ui <- dashboardPage(
           infoBox(title = "Mediana Expectativas 2024", value = round(dplyr::last(expec_ipca_2024$Mediana), 2), icon = icon("eye-low-vision")),
           infoBox(title = "Mediana Expectativas 2025", value = round(dplyr::last(expec_ipca_2025$Mediana), 2), icon = icon("eye-low-vision")),
           infoBox(title = "Mediana Expectativas 2026", value = round(dplyr::last(expec_ipca_2026$Mediana), 2), icon = icon("eye-low-vision")),
-          infoBox(title = "Mediana Expectativas 2024 Top 5 M", value = round(dplyr::last(expec_ipca_top5_2024$Mediana), 2), icon = icon("eye-low-vision"))
+          infoBox(title = "Mediana Expectativas 2024 Top 5 M", value = round(dplyr::last(expec_ipca_top5_2024$Mediana), 2), icon = icon("eye-low-vision")),
+          infoBox(title = "Inflação Implícita 1 ano (%)", value = filter(yc_anbima, type == "implicit_inflation" & n.biz.days == 252)$value, icon = icon("eye-low-vision"))
 
         ),
 
@@ -433,7 +481,7 @@ ui <- dashboardPage(
           shinydashboard::box(plotOutput("plot_ipca_expec_top5"), title = "Expectativas IPCA Top 5 (Mediana)", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
       ),
-
+      # Monetário
       tabItem(
         tabName = "mon",
         fluidRow(
@@ -442,19 +490,53 @@ ui <- dashboardPage(
           infoBox(title = "Focus 2025", value = round(last(expec_selic_2025$Mediana), 2), icon = icon("dollar-sign")),
           infoBox(title = "Focus 2026", value = round(last(expec_selic_2026$Mediana), 2), icon = icon("dollar-sign")),
           infoBox(title = "Diferencial de Juros BR - EUA", value = round(last(fed_funds$diff)), icon = icon("arrows-left-right-to-line"))
+
         ),
 
         fluidRow(
           shinydashboard::box(plotOutput("plot_selic"), title = "Selic Meta", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
           shinydashboard::box(plotOutput("plot_selic_expec"), title = "Expectativa Selic", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_selic_diff"), title = "Diferencial de Juros", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          shinydashboard::box(plotOutput("plot_selic_diff"), title = "Diferencial de Juros", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_yc_anbima"), title = "Curva de Juros de Títulos Públicos (Nominal)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_yc_anbima_real"), title = "Curva de Juros de Títulos Públicos (Real)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_yc_anbima_implicit"), title = "Curva de Juros de Títulos Públicos (Implícita)", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+
+        )
+
+      ),
+      # Fiscal
+      tabItem(
+        tabName = "fiscal",
+        fluidRow(
+          infoBox(title = "Dívida Bruta / PIB (%)", value = last(bc$fiscal$div_pib$div_pib), icon = icon("circle-exclamation"))
+        ),
+
+        fluidRow(
+          shinydashboard::box(plotOutput("plot_prim"), title = "NFSP Primário", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_nom"), title = "NFSP Nominal", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_juros"), title = "NFSP Juros", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_div_pib"), title = "Razão Dívida Bruta PIB", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+        )
+      ),
+      #Externo
+      tabItem(
+        tabName = "externo",
+        fluidRow(
+          infoBox(title = "BRL/USD", value = last(bc$cambio$ptax_usd$ptax_usd), icon = icon("dollar-sign")),
+          infoBox(title = "BRL/EUR", value = last(bc$cambio$ptax_eur$ptax_eur), icon = icon("euro-sign")),
+          infoBox(title = "Fed Funds Rate", value = last(fed_funds$value), icon = icon("dollar-sign"))
+        ),
+
+        fluidRow(
+          shinydashboard::box(plotOutput("plot_ptax"), title = " PTAX BRL/USD e BRL/EUR", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          shinydashboard::box(plotOutput("plot_yc_us"), title = "Curva de Juros Nominal EUA", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
 
       )
 
     ) # End of tabItems
 
-  ), # End of Dashboard Body
+ ), # End of Dashboard Body
 
  # Dashboard footer ------------------------------------------------------------
 
@@ -725,6 +807,16 @@ server <- function(input, output){
 
   })
 
+  output$plot_caged <- renderPlot({
+
+    caged |>
+      ggplot(aes(x = date, y = value)) +
+      geom_line(linewidth = 1.3) +
+      labs(x = NULL, y = NULL, title = "Saldo Caged") +
+      theme_economist()
+
+  })
+
   output$plot_ipca_nucleos <- renderPlot({
 
     ipca_line <- ipca_nucleos_tidy |>
@@ -830,6 +922,114 @@ server <- function(input, output){
       theme_economist()
 
   })
+
+  output$plot_yc_anbima <- renderPlot({
+
+    yc_anbima |>
+      filter(type == "nominal_return") |>
+      ggplot(aes(x = ref.date, y = value)) +
+      geom_line(linewidth = 1.3, color = "darkgreen") +
+      labs(title = "Curva de Juros Nominal (%)", x = NULL, y = NULL) +
+      theme_economist()
+
+  })
+
+  output$plot_yc_anbima_real <- renderPlot({
+
+    yc_anbima |>
+      filter(type == "real_return") |>
+      ggplot(aes(x = ref.date, y = value)) +
+      geom_line(linewidth = 1.3, color = "darkred") +
+      labs(title = "Curva de Juros Real (%)", x = NULL, y = NULL) +
+      theme_economist()
+
+  })
+
+  output$plot_yc_anbima_implicit <- renderPlot({
+
+    yc_anbima |>
+      filter(type == "implicit_inflation") |>
+      ggplot(aes(x = ref.date, y = value)) +
+      geom_line(linewidth = 1.3, color = "grey30") +
+      labs(title = "Curva de Inflação Implícita (%)", x = NULL, y = NULL) +
+      theme_economist()
+
+  })
+
+  output$plot_prim <- renderPlot({
+
+    prim |>
+      dplyr::group_by(year(date)) |>
+      dplyr::summarise(across(c(2:7), list(mean))) |>
+      tidyr::pivot_longer(cols = c(2:7), names_to = "nivel") |>
+      ggplot(aes(x = `year(date)`, y = value, color = nivel)) +
+      geom_line(linewidth = 1.3) +
+      labs(x = NULL, y = NULL, title = "NFSP Primário", color = NULL) +
+      theme_economist()
+
+  })
+
+  output$plot_nom <- renderPlot({
+
+    nominal |>
+      dplyr::group_by(year(date)) |>
+      dplyr::summarise(across(c(2:6), list(mean))) |>
+      tidyr::pivot_longer(cols = c(2:6), names_to = "nivel") |>
+      ggplot(aes(x = `year(date)`, y = value, color = nivel)) +
+      geom_line(linewidth = 1.3) +
+      labs(x = NULL, y = NULL, title = "NFSP Nominal", color = NULL) +
+      theme_economist()
+
+  })
+
+  output$plot_juros <- renderPlot({
+
+    juros |>
+      dplyr::group_by(year(date)) |>
+      dplyr::summarise(across(c(2:6), list(mean))) |>
+      tidyr::pivot_longer(cols = c(2:6), names_to = "nivel") |>
+      ggplot(aes(x = `year(date)`, y = value, color = nivel)) +
+      geom_line(linewidth = 1.3) +
+      labs(x = NULL, y = NULL, title = "NFSP Nominal", color = NULL) +
+      theme_economist()
+
+  })
+
+  output$plot_div_pib <- renderPlot({
+
+    bc$fiscal$div_pib |>
+      filter(!is.na(div_pib)) |>
+      ggplot(aes(x = date, y = div_pib)) +
+      geom_line(linewidth = 1.3) +
+      labs(x = NULL, y = "(%)", title = "Razão Dívida Bruta PIB") +
+      theme_economist()
+
+  })
+
+  output$plot_ptax <- renderPlot({
+
+    bc$cambio$ptax_usd |>
+      right_join(bc$cambio$ptax_eur) |>
+      tidyr::pivot_longer(cols = c(2:3), names_to = "ptax") |>
+      ggplot(aes(x = date, y = value, color = ptax)) +
+      geom_line(linewidth = 1.3) +
+      labs(x = NULL, y = NULL, color = NULL, title = "Taxa de Câmbio") +
+      theme_economist()
+
+  })
+
+  output$plot_yc_us <- renderPlot({
+
+    yc_data |>
+      filter(timestamp == max(timestamp)) |>
+      ggplot(aes(x = factor(duration, levels = unique(duration)), y = value)) +
+      geom_line(aes(group = 1), linewidth = 1.3) +
+      labs(x = NULL, y = NULL, title = "Treasury Yield Curve") +
+      theme_economist()+
+      ylim(3.5,5.5)
+
+  })
+
 
 
 }# End of Server

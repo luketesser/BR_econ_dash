@@ -10,7 +10,7 @@
 #' @return
 #' @export
 #'
-#' @examples
+#'
 #'
 #'
 #'
@@ -44,20 +44,37 @@ rbcb_data <- function(){
 
   expec_ipca <- rbcb::get_market_expectations('annual', 'IPCA')
 
+  expec_ipca_m <- rbcb::get_market_expectations('monthly', 'IPCA', start_date = Sys.Date() - 30)
+
+  expec_ipca_m_top5 <- rbcb::get_market_expectations('top5s-monthly', 'IPCA', start_date = Sys.Date() - 30)
+
   expec_ipca_top5 <- rbcb::get_market_expectations('top5s-annual', 'IPCA')
 
   selic <- rbcb::get_series(c(meta = 432, efetiva = 1178), start_date = "2003-01-01", end_date = Sys.Date())
 
   expec_selic <- rbcb::get_market_expectations('annual', 'Selic', start_date = Sys.Date() - 365, end_date = Sys.Date())
 
+  fiscal <- rbcb::get_series(c(Governo_Federal_primario = 7853, INSS_primario = 7854, Governos_Estaduais_primario = 4643,
+                               Governos_Municipais_primario = 4644, Empresas_Estatais_primario = 4645, Setor_Publico_Consolidado_primario = 4649,
+                               Governo_Federal_juros = 4607, Banco_Central_juros = 4608, Governos_Estaduais_juros = 4610,
+                               Governos_Municipais_juros = 4611, Empresas_Estatais_juros = 4612, Setor_Publico_Consolidado_juros = 4616,
+                               Governo_Federal_Nominal = 4574, Banco_Central_nominal = 4575, Governos_Estaduais_nominal = 4577,
+                               Governos_Municipais_nominal = 4578, Empresas_Estatais_nominal = 4579, Setor_Publico_Consolidado_nominal = 4583,
+                               div_pib = 13762))
+
+  cambio <- rbcb::get_series(c(ptax_usd = 1, ptax_eur = 21619))
+
+  bp <- rbcb::get_series(c(tc = 22701, k = 22863, reserv = 3546, tc_pib = 23079, ied_pib = 23080))
+
   results <- list(ibc = ibc, uci = uci, ipca = ipca, ipca_desag = ipca_desag, expec_pib = expec_pib, expec_agro = expec_agro,
                  expec_gov = expec_gov, expec_c = expec_c, expec_exp = expec_exp,
                  expec_imp = expec_imp, expec_fbcf = expec_fbcf, expec_ind = expec_ind,
-                 expec_serv = expec_serv, expec_ipca = expec_ipca, expec_ipca_top5 = expec_ipca_top5, selic = selic, expec_selic = expec_selic)
+                 expec_serv = expec_serv, expec_ipca = expec_ipca, expec_ipca_top5 = expec_ipca_top5, selic = selic, expec_selic = expec_selic,
+                 fiscal = fiscal, expec_ipca_m = expec_ipca_m, expec_ipca_m_top5 = expec_ipca_m_top5, cambio = cambio, bp = bp)
 
   return(results)
 
 
 }
 
-# saveRDS(bc, 'Data/bc.rds')
+# devtools::load_all(); bc <- rbcb_data(); saveRDS(bc, 'Data/bc.rds')
