@@ -8,8 +8,9 @@
 
 
 library(shiny)
-library(shinydashboard)
-library(shinydashboardPlus)
+# library(shinydashboard)
+# library(shinydashboardPlus)
+library(bs4Dash)
 library(ggplot2)
 library(dplyr)
 library(lubridate)
@@ -20,7 +21,8 @@ library(neverhpfilter)
 library(mFilter)
 library(bizdays)
 library(alphavantager)
-library(quantmod)
+# library(quantmod)
+library(scales)
 # source("R/sidra_data.R")
 # source("R/rbcb_data.R")
 
@@ -345,7 +347,11 @@ yc_us <- avg
 
 ui <- dashboardPage(
 
-  skin = "blue",
+  dark = TRUE,
+
+  help = NULL,
+
+  # skin = "blue",
 
   # Dashboard Header (App name) ------------------------------------------------
   header = dashboardHeader(
@@ -356,8 +362,9 @@ ui <- dashboardPage(
     titleWidth = "300px",
 
     # Message box top-right corner
-    dropdownMenu(
-      type = "messages",
+    rightUi = dropdownMenu(
+      type = "tasks",
+      icon = icon("circle-chevron-down"),
       messageItem(
         from    = "Open Source",
         message = "Veja no Github",
@@ -399,30 +406,30 @@ ui <- dashboardPage(
       tabItem(
         tabName = "activity",
         fluidRow(
-          infoBox(title = "PIB (%) Margem", value = round(last(delta_pib$delta_pib_margem)*100, 2), icon = icon("chart-line")),
-          infoBox(title = "PIB (%) Trimestral", value = round(last(delta_pib$delta_pib_trimestral)*100, 2), icon = icon("chart-line")),
-          infoBox(title = "PIB (%) Anual", value = round(last(delta_pib$delta_pib_anual)*100, 2), icon = icon("chart-line")),
-          infoBox(title = "IBC-BR Margem (%)", value = round(last(ibc$delta)*100, 2)),
-          infoBox(title = "PMC Receita Vendas (%)", value = round(last(filter(pmc_margem, pmc_margem$`Tipos de índice (Código)` == 56735)$Valor), 2), icon = icon("file-invoice-dollar")),
-          infoBox(title = "PMC Volume Vendas (%)", value = round(last(filter(pmc_margem, pmc_margem$`Tipos de índice (Código)` == 56736)$Valor), 2), icon = icon("file-invoice-dollar")),
-          infoBox(title = "PIM Margem (%)", value = round(last(pim_margem$Valor), 2), icon = icon("industry")),
-          infoBox(title = "Hiato Hamilton (2017) (%)", value = round(last(gap_hamilton$gap), 2), icon = icon("arrows-left-right-to-line")),
-          infoBox(title = "Hiato HP Filter (%)", value = round(last(gap_hp$gap), 2), icon = icon("arrows-left-right-to-line")),
-          infoBox(title = "Hiato Média MA, HP e Hamilton", value = round(last(gap_avg$average), 2), icon = icon("arrows-left-right-to-line")),
-          infoBox(title = "Utilização da Capacidade Instalada", value = round(last(bc$uci$uci), 2), icon = icon("industry")),
-          infoBox(title = "Mediana Expectativa Focus 2024", value = round(last(expec_pib_2024$Mediana), 2), icon = icon("eye-low-vision"))
+          infoBox(title = "PIB (%) Margem", value = number(last(delta_pib$delta_pib_margem)*100, accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("chart-line")),
+          infoBox(title = "PIB (%) Trimestral", value = number(last(delta_pib$delta_pib_trimestral)*100, accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("chart-line")),
+          infoBox(title = "PIB (%) Anual", value = number(last(delta_pib$delta_pib_anual)*100, accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("chart-line")),
+          infoBox(title = "IBC-BR Margem (%)", value = number(last(ibc$delta)*100, accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%")),
+          infoBox(title = "PMC Receita Vendas (%)", value = number(last(filter(pmc_margem, pmc_margem$`Tipos de índice (Código)` == 56735)$Valor), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("file-invoice-dollar")),
+          infoBox(title = "PMC Volume Vendas (%)", value = number(last(filter(pmc_margem, pmc_margem$`Tipos de índice (Código)` == 56736)$Valor), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("file-invoice-dollar")),
+          infoBox(title = "PIM Margem (%)", value = number(last(pim_margem$Valor), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("industry")),
+          infoBox(title = "Hiato Hamilton (2017) (%)", value = number(last(gap_hamilton$gap), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("arrows-left-right-to-line")),
+          infoBox(title = "Hiato HP Filter (%)", value = number(last(gap_hp$gap), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("arrows-left-right-to-line")),
+          infoBox(title = "Hiato Média MA, HP e Hamilton", value = number(last(gap_avg$average), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("arrows-left-right-to-line")),
+          infoBox(title = "Utilização da Capacidade Instalada", value = number(last(bc$uci$uci), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("industry")),
+          infoBox(title = "Mediana Expectativa Focus 2024", value = number(last(expec_pib_2024$Mediana), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("eye-low-vision"))
         ),
         fluidRow(
-          shinydashboard::box(plotOutput("plot_gdp"), title = "PIB Real", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_gdp_open"), title = "PIB Setores", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_gap_ma"),  title = "Hiato do Produto Decomposição MA", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
-          shinydashboard::box(plotOutput("plot_gap_h"),  title = "Hiato do Produto Hamilton (2017)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
-          shinydashboard::box(plotOutput("plot_gap_hp"),  title = "Hiato do Produto Filtro HP", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
-          shinydashboard::box(plotOutput("plot_gap_avg"),  title = "Hiato do Produto Média", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
-          shinydashboard::box(plotOutput("plot_uci"),  title = "Utilização da Capacidade Intalada (%)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
-          shinydashboard::box(plotOutput("plot_pmc"),  title = "PMC - Delta (%)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
-          shinydashboard::box(plotOutput("plot_pim"),  title = "PIM - Delta (%)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
-          shinydashboard::box(plotOutput("plot_expec"), title = "Mediana Expectativa Focus", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          box(plotOutput("plot_gdp"), title = "PIB Real", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_gdp_open"), title = "PIB Setores", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_gap_ma"),  title = "Hiato do Produto Decomposição MA", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
+          box(plotOutput("plot_gap_h"),  title = "Hiato do Produto Hamilton (2017)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
+          box(plotOutput("plot_gap_hp"),  title = "Hiato do Produto Filtro HP", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
+          box(plotOutput("plot_gap_avg"),  title = "Hiato do Produto Média", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
+          box(plotOutput("plot_uci"),  title = "Utilização da Capacidade Intalada (%)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
+          box(plotOutput("plot_pmc"),  title = "PMC - Delta (%)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
+          box(plotOutput("plot_pim"),  title = "PIM - Delta (%)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
+          box(plotOutput("plot_expec"), title = "Mediana Expectativa Focus", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
 
       ),
@@ -431,23 +438,23 @@ ui <- dashboardPage(
       tabItem(
         tabName = "emprego",
         fluidRow(
-          infoBox(title = "População", value = round(last(pop$Valor), 2), icon = icon("people-group")),
-          infoBox(title = "PIA (População em Idade Ativa)", value = round(last(pian$Valor), 2), icon = icon("people-group")),
-          infoBox(title = "PEA (População Economicamente Ativa)", value = round(last(pean$Valor), 2), icon = icon("person-running")),
-          infoBox(title = "PO (População Ocupada)", value = round(last(pon$Valor), 2), icon = icon("briefcase")),
-          infoBox(title = "PD (População Desocupada)", value = round(last(pdn$Valor), 2), icon = icon("person-praying")),
-          infoBox(title = "Taxa de Desemprego % (PD/PEA)", value = round(last(desemp$tx_desemp)*100, 2), icon = icon("chart-column")),
+          infoBox(title = "População", value = number(last(pop$Valor), big.mark = ".", decimal.mark = ","), icon = icon("people-group")),
+          infoBox(title = "PIA (População em Idade Ativa)", value = number(last(pian$Valor), big.mark = ".", decimal.mark = ","), icon = icon("people-group")),
+          infoBox(title = "PEA (População Economicamente Ativa)", value = number(last(pean$Valor), big.mark = ".", decimal.mark = ","), icon = icon("person-running")),
+          infoBox(title = "PO (População Ocupada)", value = number(last(pon$Valor), big.mark = ".", decimal.mark = ","), icon = icon("briefcase")),
+          infoBox(title = "PD (População Desocupada)", value = number(last(pdn$Valor), big.mark = ".", decimal.mark = ","), icon = icon("person-praying")),
+          infoBox(title = "Taxa de Desemprego % (PD/PEA)", value = number(last(desemp$tx_desemp)*100, accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("chart-column")),
           # infoBox(title = "", value = round(last(), 2))
         ),
 
         fluidRow(
-          shinydashboard::box(plotOutput("plot_desemp"), title = "Taxa de Desemprego %", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_pnea"), title = "PNEA % - Pop. Não Econ. Ativa %", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_pea"), title = "PEA % - Pop. Econ. Ativa %", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_gap_desemp"), title = "Hiato do Desemprego (%)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_categ"), title = "Evolução Categorias de Emprego (%)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_rend_categ"), title = "Evolução Rendimento Categorias de Emprego R$", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_caged"), title = "Caged Saldo", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          box(plotOutput("plot_desemp"), title = "Taxa de Desemprego %", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_pnea"), title = "PNEA % - Pop. Não Econ. Ativa %", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_pea"), title = "PEA % - Pop. Econ. Ativa %", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_gap_desemp"), title = "Hiato do Desemprego (%)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_categ"), title = "Evolução Categorias de Emprego (%)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_rend_categ"), title = "Evolução Rendimento Categorias de Emprego R$", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_caged"), title = "Caged Saldo", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
 
       ),
@@ -456,50 +463,51 @@ ui <- dashboardPage(
       tabItem(
         tabName = "inflação",
         fluidRow(
-          infoBox(title = "IPCA Margem", value = round(last(ipca_nucleos$ipca), 2), icon = icon("tag")),
-          infoBox(title = "IPCA Margem Expectativa", value = ipca_expec_margem$Mediana, icon = icon("eye-low-vision")),
-          infoBox(title = "IPCA Margem Expectativa Top 5", value = ipca_expec_margem_top5$Mediana, icon = icon("eye-low-vision")),
-          infoBox(title = "Inércia", value = round(dplyr::last(inercia$ar1),2), icon = icon("lines-leaning")),
-          infoBox(title = "índice de Difusão", value = round(dplyr::last(ipca_difu$diffusion), 2), icon = icon("users-rays")),
-          infoBox(title = "IPCA Acumulado Ano", value = round(dplyr::last(ipca_acum$annual), 2), icon = icon("chart-line")),
-          infoBox(title = "IPCA Acumulado 12m", value = round(dplyr::last(ipca_yearly$yearly), 2), icon = icon("chart-line")),
-          infoBox(title = "Mediana Expectativas 2024", value = round(dplyr::last(expec_ipca_2024$Mediana), 2), icon = icon("eye-low-vision")),
-          infoBox(title = "Mediana Expectativas 2025", value = round(dplyr::last(expec_ipca_2025$Mediana), 2), icon = icon("eye-low-vision")),
-          infoBox(title = "Mediana Expectativas 2026", value = round(dplyr::last(expec_ipca_2026$Mediana), 2), icon = icon("eye-low-vision")),
-          infoBox(title = "Mediana Expectativas 2024 Top 5 M", value = round(dplyr::last(expec_ipca_top5_2024$Mediana), 2), icon = icon("eye-low-vision")),
-          infoBox(title = "Inflação Implícita 1 ano (%)", value = filter(yc_anbima, type == "implicit_inflation" & n.biz.days == 252)$value, icon = icon("eye-low-vision"))
+          infoBox(title = "IPCA Margem", value = number(last(ipca_nucleos$ipca), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("tag")),
+          infoBox(title = "IPCA Margem Expectativa", value = number(ipca_expec_margem$Mediana, accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("eye-low-vision")),
+          infoBox(title = "IPCA Margem Expectativa Top 5", value = number(ipca_expec_margem_top5$Mediana, accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("eye-low-vision")),
+          infoBox(title = "Inércia", value = number(dplyr::last(inercia$ar1), accuracy = 0.01, big.mark = ".", decimal.mark = ","), icon = icon("lines-leaning")),
+          infoBox(title = "índice de Difusão", value = number(dplyr::last(ipca_difu$diffusion), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("users-rays")),
+          infoBox(title = "IPCA Acumulado Ano", value = number(dplyr::last(ipca_acum$annual), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("chart-line")),
+          infoBox(title = "IPCA Acumulado 12m", value = number(dplyr::last(ipca_yearly$yearly), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("chart-line")),
+          infoBox(title = "Mediana Expectativas 2024", value = number(dplyr::last(expec_ipca_2024$Mediana), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("eye-low-vision")),
+          infoBox(title = "Mediana Expectativas 2025", value = number(dplyr::last(expec_ipca_2025$Mediana), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("eye-low-vision")),
+          infoBox(title = "Mediana Expectativas 2026", value = number(dplyr::last(expec_ipca_2026$Mediana), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("eye-low-vision")),
+          infoBox(title = "Mediana Expectativas 2024 Top 5 M", value = number(dplyr::last(expec_ipca_top5_2024$Mediana), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("eye-low-vision")),
+          infoBox(title = "Inflação Implícita 1 ano (%)", value = number(filter(yc_anbima, type == "implicit_inflation" & n.biz.days == 252)$value, accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("eye-low-vision"))
 
         ),
 
         fluidRow(
-          shinydashboard::box(plotOutput("plot_ipca_nucleos"), title = "IPCA e Núcleos Selecionados", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_ipca_inercia"), title = "Inércia IPCA", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_ipca_desag"), title = "IPCA - Grupos", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_ipca_difu"), title = "índice de Difusão", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_ipca_acum"), title = "IPCA Acumulado no Ano", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_ipca_expec"), title = "Expectativas IPCA (Mediana)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_ipca_expec_top5"), title = "Expectativas IPCA Top 5 (Mediana)", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          box(plotOutput("plot_ipca_nucleos"), title = "IPCA e Núcleos Selecionados", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_ipca_inercia"), title = "Inércia IPCA", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_ipca_desag"), title = "IPCA - Grupos", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_ipca_difu"), title = "índice de Difusão", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_ipca_acum"), title = "IPCA Acumulado no Ano", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_ipca_expec"), title = "Expectativas IPCA (Mediana)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_ipca_expec_top5"), title = "Expectativas IPCA Top 5 (Mediana)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_ipca_expec_median_mean"), title = "Diferença Mediana e Média expectativas 2024", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
       ),
       # Monetário
       tabItem(
         tabName = "mon",
         fluidRow(
-          infoBox(title = "Selic Meta", value = round(last(bc$selic$meta$meta), 2), icon = icon("dollar-sign")),
-          infoBox(title = "Focus 2024", value = round(last(expec_selic_2024$Mediana), 2), icon = icon("dollar-sign")),
-          infoBox(title = "Focus 2025", value = round(last(expec_selic_2025$Mediana), 2), icon = icon("dollar-sign")),
-          infoBox(title = "Focus 2026", value = round(last(expec_selic_2026$Mediana), 2), icon = icon("dollar-sign")),
-          infoBox(title = "Diferencial de Juros BR - EUA", value = round(last(fed_funds$diff)), icon = icon("arrows-left-right-to-line"))
+          infoBox(title = "Selic Meta", value = number(last(bc$selic$meta$meta), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("dollar-sign")),
+          infoBox(title = "Focus 2024", value = number(last(expec_selic_2024$Mediana), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("dollar-sign")),
+          infoBox(title = "Focus 2025", value = number(last(expec_selic_2025$Mediana), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("dollar-sign")),
+          infoBox(title = "Focus 2026", value = number(last(expec_selic_2026$Mediana), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("dollar-sign")),
+          infoBox(title = "Diferencial de Juros BR - EUA", value = number(last(fed_funds$diff), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("arrows-left-right-to-line"))
 
         ),
 
         fluidRow(
-          shinydashboard::box(plotOutput("plot_selic"), title = "Selic Meta", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_selic_expec"), title = "Expectativa Selic", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_selic_diff"), title = "Diferencial de Juros", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_yc_anbima"), title = "Curva de Juros de Títulos Públicos (Nominal)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_yc_anbima_real"), title = "Curva de Juros de Títulos Públicos (Real)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_yc_anbima_implicit"), title = "Curva de Juros de Títulos Públicos (Implícita)", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          box(plotOutput("plot_selic"), title = "Selic Meta", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_selic_expec"), title = "Expectativa Selic", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_selic_diff"), title = "Diferencial de Juros", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_yc_anbima"), title = "Curva de Juros de Títulos Públicos (Nominal)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_yc_anbima_real"), title = "Curva de Juros de Títulos Públicos (Real)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_yc_anbima_implicit"), title = "Curva de Juros de Títulos Públicos (Implícita)", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
 
         )
 
@@ -508,28 +516,28 @@ ui <- dashboardPage(
       tabItem(
         tabName = "fiscal",
         fluidRow(
-          infoBox(title = "Dívida Bruta / PIB (%)", value = last(bc$fiscal$div_pib$div_pib), icon = icon("circle-exclamation"))
+          infoBox(title = "Dívida Bruta / PIB (%)", value = number(last(bc$fiscal$div_pib$div_pib), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("circle-exclamation"))
         ),
 
         fluidRow(
-          shinydashboard::box(plotOutput("plot_prim"), title = "NFSP Primário", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_nom"), title = "NFSP Nominal", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_juros"), title = "NFSP Juros", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_div_pib"), title = "Razão Dívida Bruta PIB", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          box(plotOutput("plot_prim"), title = "NFSP Primário", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_nom"), title = "NFSP Nominal", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_juros"), title = "NFSP Juros", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_div_pib"), title = "Razão Dívida Bruta PIB", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
       ),
       #Externo
       tabItem(
         tabName = "externo",
         fluidRow(
-          infoBox(title = "BRL/USD", value = last(bc$cambio$ptax_usd$ptax_usd), icon = icon("dollar-sign")),
-          infoBox(title = "BRL/EUR", value = last(bc$cambio$ptax_eur$ptax_eur), icon = icon("euro-sign")),
-          infoBox(title = "Fed Funds Rate", value = last(fed_funds$value), icon = icon("dollar-sign"))
+          infoBox(title = "BRL/USD", value = number(last(bc$cambio$ptax_usd$ptax_usd), accuracy = 0.01, big.mark = ".", decimal.mark = ","), icon = icon("dollar-sign")),
+          infoBox(title = "BRL/EUR", value = number(last(bc$cambio$ptax_eur$ptax_eur), accuracy = 0.01, big.mark = ".", decimal.mark = ","), icon = icon("euro-sign")),
+          infoBox(title = "Fed Funds Rate", value = number(last(fed_funds$value), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("dollar-sign"))
         ),
 
         fluidRow(
-          shinydashboard::box(plotOutput("plot_ptax"), title = " PTAX BRL/USD e BRL/EUR", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          shinydashboard::box(plotOutput("plot_yc_us"), title = "Curva de Juros Nominal EUA", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          box(plotOutput("plot_ptax"), title = " PTAX BRL/USD e BRL/EUR", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_yc_us"), title = "Curva de Juros Nominal EUA", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
 
       )
@@ -890,6 +898,17 @@ server <- function(input, output){
       theme_economist()
   })
 
+  output$plot_ipca_expec_median_mean <- renderPlot({
+
+    expec_ipca_2024 |>
+      filter(baseCalculo == 0) |>
+      ggplot(aes(x = Data, y = Mediana - Media)) +
+      geom_line(linewidth = 1.3) +
+      labs(x = NULL, y = NULL, title = NULL) +
+      theme_economist()
+
+  })
+
   output$plot_selic <- renderPlot({
 
     bc$selic$meta |>
@@ -1020,13 +1039,14 @@ server <- function(input, output){
 
   output$plot_yc_us <- renderPlot({
 
-    yc_data |>
+    yc_us |>
       filter(timestamp == max(timestamp)) |>
-      ggplot(aes(x = factor(duration, levels = unique(duration)), y = value)) +
+      ggplot(aes(x = duration, y = value)) +
+      # ggplot(aes(x = factor(duration, levels = unique(duration)), y = value)) +
       geom_line(aes(group = 1), linewidth = 1.3) +
       labs(x = NULL, y = NULL, title = "Treasury Yield Curve") +
-      theme_economist()+
-      ylim(3.5,5.5)
+      theme_economist()
+      # ylim(3.5,5.5)
 
   })
 
