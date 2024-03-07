@@ -36,7 +36,9 @@ ipea <- readRDS('Data/ipea.rds')
 
 avg <- readRDS('Data/avg.rds')
 
-ymd <- "2023-09-01" # last trimester of available data (CNT). Must automatize.
+ymd <- "2023-12-01" # last trimester of available data (CNT). Must automatize.
+
+ymd_pnad <- "2023-12-01"
 
 # Values for Info boxes ------------------------------------------------
 
@@ -95,13 +97,13 @@ pim_margem <- sidra$pim |>
 # Emprego
 
 pop <- sidra$pop |>
-  mutate(date = seq.Date(from = dplyr::first(dates), to  = ymd(ymd), by = "quarter"))
+  mutate(date = seq.Date(from = dplyr::first(dates), to  = ymd(ymd_pnad), by = "quarter"))
 
 pnad <- sidra$pnad
 
 pnad_dates <- pnad |>
   filter(pnad$`Condição em relação à força de trabalho e condição de ocupação (Código)` == 32385 & pnad$`Variável (Código)` == 1641) |>
-  mutate(date = seq.Date(from = dplyr::first(dates), to  = ymd(ymd), by = "quarter"))
+  mutate(date = seq.Date(from = dplyr::first(dates), to  = ymd(ymd_pnad), by = "quarter"))
 
 pia <- pnad |>
   filter(pnad$`Condição em relação à força de trabalho e condição de ocupação (Código)` == 32385)
@@ -391,7 +393,11 @@ ui <- dashboardPage(
       menuItem("Inflação", tabName = "inflação", icon = icon("chart-pie")),
       menuItem("Política Monetária", tabName = "mon", icon = icon("dollar-sign")),
       menuItem("Fiscal", tabName = "fiscal", icon = icon("scale-unbalanced")),
-      menuItem("Externo", tabName = "externo", icon = icon("globe"))
+      menuItem("Externo", tabName = "externo", icon = icon("globe")),
+
+      sliderInput(inputId = "slider_atividade", label = "Atividade", min = base::as.Date("1996-01-02"), max = base::as.Date(ymd), value =  base::as.Date("2015-01-01")),
+      sliderInput(inputId = "slider_emprego", label = "Emprego", min = base::as.Date("2012-01-02"), max = base::as.Date(ymd), value =  base::as.Date("2015-01-01")),
+      sliderInput(inputId = "slider_inf", label = "Inflação",  min = base::as.Date("1996-01-02"), max = Sys.Date(), value =  base::as.Date("2015-01-01"))
     )
   ),
 
@@ -566,11 +572,20 @@ server <- function(input, output){
 
 
     # PIB a preços de mercado
-    pib |>
-      filter(`Setores e subsetores (Código)` == 90707) |>
-      ggplot(mapping = aes(x = dates_helper$date, y = Valor)) +
+
+    pib_data <- reactive({
+      pib1 <- pib |>
+        filter(`Setores e subsetores (Código)` == 90707) |>
+        mutate(date = seq.Date(from = dplyr::first(dates), to  = ymd(ymd), by = "quarter")) |>
+        filter(date >= input$slider_atividade)
+
+      return(pib1)
+    })
+
+    pib_data() |>
+      ggplot(mapping = aes(x = date, y = Valor)) +
       geom_line(aes(y = Valor), linewidth = 1.5, color = 'blue') +
-      labs(title = "PIB Real", x = NULL, y = 'Número índice') +
+      labs(x = NULL, y = 'Número índice') +
       theme_economist()
 
 
@@ -578,35 +593,65 @@ server <- function(input, output){
 
   output$plot_gap_ma <- renderPlot({
 
-    gap |>
-      ggplot(mapping = aes(x = dates_helper$date, y = gap*100)) +
+    gap_data <- reactive({
+
+      gap1 <- gap |>
+        mutate(date = dates_helper$date) |>
+        filter(date >= input$slider_atividade)
+
+      return(gap1)
+
+    })
+
+    gap_data() |>
+      ggplot(mapping = aes(x = date, y = gap*100)) +
       geom_line(aes(y = gap*100), linewidth = .7, color = 'black') +
       geom_hline(yintercept = 0, color = 'red') +
-      labs(title = 'Hiato do Produto Filtro MA (%)', x = NULL, y = NULL) +
+      labs(x = NULL, y = NULL) +
       theme_economist()
 
   })
 
   output$plot_gap_h <- renderPlot({
 
-    gap_hamilton |>
-      mutate(gap = y.cycle/y.trend*100) |>
-      ggplot(mapping = aes(x = dates_helper$date, y = gap)) +
+    gap_hamilton_data <- reactive({
+
+      gap_hamilton1 <- gap_hamilton |>
+        mutate(gap = y.cycle/y.trend*100) |>
+        mutate(date = dates_helper$date) |>
+        filter(date >= input$slider_atividade)
+
+      return(gap_hamilton1)
+
+    })
+
+    gap_hamilton_data() |>
+      ggplot(mapping = aes(x = date, y = gap)) +
       geom_line(aes(y = gap), linewidth = .7, color = 'black') +
       geom_hline(yintercept = 0, color = 'red') +
-      labs(title = 'Hiato do Produto Hamilton (2017) (%)', x = NULL, y = NULL) +
+      labs(x = NULL, y = NULL) +
       theme_economist()
 
   })
 
   output$plot_gap_hp <- renderPlot({
 
-    gap_hp |>
-      mutate(gap = cycle/trend*100) |>
-      ggplot(mapping = aes(x = dates_helper$date, y = gap)) +
+    gap_hp_data <- reactive({
+
+      gap_hp1 <- gap_hp |>
+        mutate(gap = cycle/trend*100) |>
+        mutate(date = dates_helper$date) |>
+        filter(date >= input$slider_atividade)
+
+      return(gap_hp1)
+
+    })
+
+    gap_hp_data() |>
+      ggplot(mapping = aes(x = date, y = gap)) +
       geom_line(aes(y = gap), linewidth = .7, color = 'black') +
       geom_hline(yintercept = 0, color = 'red') +
-      labs(title = 'Hiato do Produto Filtro HP (%)', x = NULL, y = NULL) +
+      labs(x = NULL, y = NULL) +
       theme_economist()
 
 
@@ -614,11 +659,21 @@ server <- function(input, output){
 
   output$plot_gap_avg <- renderPlot({
 
-    gap_avg |>
-      ggplot(mapping = aes(x = dates_helper$date, y = average)) +
+    gap_avg_data <- reactive({
+
+      gap_avg1 <- gap_avg |>
+        mutate(date =  dates_helper$date) |>
+        filter(date >= input$slider_atividade)
+
+      return(gap_avg1)
+
+    })
+
+    gap_avg_data() |>
+      ggplot(mapping = aes(x = date, y = average)) +
       geom_line(aes(y = average), linewidth = .7, color = 'black') +
       geom_hline(yintercept = 0, color = 'red') +
-      labs(title = 'Hiato do Produto Média (%)', x = NULL, y = NULL) +
+      labs(x = NULL, y = NULL) +
       theme_economist()
 
 
@@ -626,115 +681,84 @@ server <- function(input, output){
 
   output$plot_gdp_open <- renderPlot({
 
-    # PIB Agro
+    pib_open <- reactive({
 
-    pib_agro <- pib |>
-      filter(`Setores e subsetores (Código)` == 90687) |>
-      mutate(deseasonalized = seasadj(decompose(ts(Valor, frequency = 4)))) |>
-      ggplot(mapping = aes(x = dates_helper$date, y = Valor)) +
-      geom_line(linewidth = 1, color = 'green') +
-      labs(title = "PIB Agro", x = NULL, y = 'Índice') +
+      pib_open1 <- pib |>
+        group_by(`Setores e subsetores (Código)`) |>
+        mutate(deseasonalized = seasadj(decompose(ts(Valor, frequency = 4)))) |>
+        mutate(date = seq.Date(from = dplyr::first(dates), to  = ymd(ymd), by = "quarter")) |>
+        filter(`Setores e subsetores (Código)` == c(90687, 90691, 90696, 93405, 93406, 93404, 93407, 93408)) |>
+        filter(date >= input$slider_atividade)
+
+      return(pib_open1)
+
+    })
+
+    pib_open() |>
+      ggplot(mapping = aes(x = date, y = deseasonalized, color = `Setores e subsetores`)) +
+      geom_line(linewidth = 1) +
+      facet_wrap(ncol = 4, vars(`Setores e subsetores`), scales = "free") +
+      labs(y = NULL, color = NULL) +
       theme_economist()
-
-    #PIB Ind
-
-    pib_ind <- pib |>
-      filter(`Setores e subsetores (Código)` == 90691) |>
-      mutate(deseasonalized = seasadj(decompose(ts(Valor, frequency = 4)))) |>
-      ggplot(mapping = aes(x = dates_helper$date, y = Valor)) +
-      geom_line(linewidth = 1, color = 'grey') +
-      labs(title = "PIB Indústria", x = NULL, y = 'Índice') +
-      theme_economist()
-
-    #PIB Serviços
-
-    pib_serv <- pib |>
-      filter(`Setores e subsetores (Código)` == 90696) |>
-      mutate(deseasonalized = seasadj(decompose(ts(Valor, frequency = 4)))) |>
-      ggplot(mapping = aes(x = dates_helper$date, y = Valor)) +
-      geom_line(linewidth = 1, color = 'blue') +
-      labs(title = "PIB Serviços", x = NULL, y = 'Índice') +
-      theme_economist()
-
-    #PIB Gov
-
-    pib_gov <- pib |>
-      filter(`Setores e subsetores (Código)` == 93405) |>
-      mutate(deseasonalized = seasadj(decompose(ts(Valor, frequency = 4)))) |>
-      ggplot(mapping = aes(x = dates_helper$date, y = Valor)) +
-      geom_line(linewidth = 1, color = 'yellow') +
-      labs(title = "PIB Governo", x = NULL, y = 'Índice') +
-      theme_economist()
-
-    #PIB FBCF
-
-    pib_fbcf <- pib |>
-      filter(`Setores e subsetores (Código)` == 93406) |>
-      mutate(deseasonalized = seasadj(decompose(ts(Valor, frequency = 4)))) |>
-      ggplot(mapping = aes(x = dates_helper$date, y = Valor)) +
-      geom_line(linewidth = 1, color = 'magenta') +
-      labs(title = "FBCF", x = NULL, y = 'Índice') +
-      theme_economist()
-
-    #PIB CF
-
-    pib_cf <- pib |>
-      filter(`Setores e subsetores (Código)` == 93404) |>
-      mutate(deseasonalized = seasadj(decompose(ts(Valor, frequency = 4)))) |>
-      ggplot(mapping = aes(x = dates_helper$date, y = Valor)) +
-      geom_line(linewidth = 1, color = 'orange') +
-      labs(title = "CF", x = NULL, y = 'Índice') +
-      theme_economist()
-
-    #PIB X
-
-    pib_x <- pib |>
-      filter(`Setores e subsetores (Código)` == 93407) |>
-      mutate(deseasonalized = seasadj(decompose(ts(Valor, frequency = 4)))) |>
-      ggplot(mapping = aes(x = dates_helper$date, y = Valor)) +
-      geom_line(linewidth = 1, color = 'purple') +
-      labs(title = "X", x = NULL, y = 'Índice') +
-      theme_economist()
-
-    #PIB M
-
-    pib_m <- pib |>
-      filter(`Setores e subsetores (Código)` == 93408) |>
-      mutate(deseasonalized = seasadj(decompose(ts(Valor, frequency = 4)))) |>
-      ggplot(mapping = aes(x = dates_helper$date, y = Valor)) +
-      geom_line(linewidth = 1, color = 'brown') +
-      labs(title = "M", x = NULL, y = 'Índice') +
-      theme_economist()
-
-    plot_grid(pib_agro, pib_ind, pib_serv, pib_gov, pib_fbcf, pib_cf, pib_x, pib_m, nrow = 3, labels = "AUTO")
 
   })
 
   output$plot_uci <- renderPlot({
-    bc$uci |>
+
+    uci_data <- reactive({
+
+      uci1 <- bc$uci |>
+        filter(date >= input$slider_atividade)
+
+      return(uci1)
+
+    })
+
+    uci_data() |>
       ggplot(aes(x = date,  y = uci)) +
       geom_line(linewidth = 1, color = "gray") +
-      geom_smooth(data = subset(bc$uci, date > '2021-01-01'), method = 'lm', formula = y ~ x, color = 'red') +
-      labs(title = "Utilização da Capacidade Instalada (%)", x = NULL, Y = NULL) +
+      geom_smooth(color = 'red') + # subset(bc$uci, date > uci_data$date)
+      labs(x = NULL, Y = NULL) +
       theme_economist()
+
+
   })
 
   output$plot_pmc <- renderPlot({
-    pmc_margem |>
-      filter(dates > "2022-01-01") |>
+
+    pmc_margem_data <- reactive({
+
+      pmc_margem1 <- pmc_margem |>
+        filter(dates >= input$slider_atividade)
+
+      return(pmc_margem1)
+
+    })
+
+    pmc_margem_data() |>
       ggplot(aes(x = dates, y = Valor, color = `Tipos de índice`)) +
       geom_line(linewidth = 1) +
-      labs(title = "PMC - Delta (%)", x = NULL, Y = NULL) +
+      labs(x = NULL, Y = NULL, color = NULL) +
       theme_economist()
   })
 
   output$plot_pim <- renderPlot({
-    pim_margem |>
-      filter(dates > "2022-01-01") |>
+
+    pim_margem_data <- reactive({
+
+      pim_margem1 <- pim_margem |>
+      filter(dates >= input$slider_atividade)
+
+      return(pim_margem1)
+
+    })
+
+    pim_margem_data() |>
       ggplot(aes(x = dates, y = Valor)) +
       geom_line(linewidth = 1, color = "brown") +
-      labs(title = "PIM - Delta (%)", x = NULL, Y = NULL) +
+      labs(x = NULL, Y = NULL) +
       theme_economist()
+
   })
 
   output$plot_expec <- renderPlot({
@@ -744,31 +768,62 @@ server <- function(input, output){
       filter(baseCalculo == 0) |>
       ggplot(aes(x = Data, y = Mediana, color = DataReferencia)) +
       geom_line(linewidth = 1) +
-      labs(title = "Mediana Expectativa Focus", x = NULL, Y = NULL, color = NULL) +
+      labs(x = NULL, Y = NULL, color = NULL) +
       theme_economist()
   })
 
   output$plot_desemp <- renderPlot({
-    desemp |>
+
+    desemp_data <- reactive({
+
+      desemp1 <- desemp |>
+        mutate(trend = gap_des$trend_ma) |>
+        filter(dates >= input$slider_emprego)
+
+      return(desemp1)
+
+    })
+
+    desemp_data() |>
       ggplot(aes(x = dates, y = tx_desemp*100)) +
       geom_line(linewidth = 1, color = "blue") +
-      geom_line(aes(x = dates, y = gap_des$trend_ma*100), linewidth = 1, color = "black") +
-      labs(titles = "Taxa de Desemprego %", x = NULL, y = NULL) +
+      geom_line(aes(x = dates, y = trend*100), linewidth = 1, color = "black") +
+      labs(x = NULL, y = NULL) +
       theme_economist()
 
   })
 
   output$plot_pnea <- renderPlot({
-    pneap |>
+
+    pneap_data <- reactive({
+
+      pneap_data1 <- pneap |>
+        filter(dates >= input$slider_emprego)
+
+      return(pneap_data1)
+
+    })
+
+    pneap_data() |>
       ggplot(aes(x = dates, y = Valor)) +
       geom_line(linewidth = 1, color = "brown") +
-      labs(titles = "PNEA % - Pop. Não Econ. Ativa", x = NULL, y = NULL) +
+      labs(x = NULL, y = NULL) +
       theme_economist()
 
   })
 
   output$plot_pea <- renderPlot({
-    peap |>
+
+    peap_data <- reactive({
+
+      peap1 <- peap |>
+        filter(dates >= input$slider_emprego)
+
+      return(peap1)
+
+    })
+
+    peap_data() |>
       ggplot(aes(x = dates, y = Valor)) +
       geom_line(linewidth = 1, color = "yellow") +
       labs(titles = "PEA % - Pop. Econ. Ativa", x = NULL, y = NULL) +
@@ -777,17 +832,37 @@ server <- function(input, output){
   })
 
   output$plot_gap_desemp <- renderPlot({
-    gap_desemp_ham |>
+
+    gap_desemp_ham_data <- reactive({
+
+      gap_desemp_ham1 <- gap_desemp_ham |>
+        filter(dates >= input$slider_emprego)
+
+      return(gap_desemp_ham1)
+
+    })
+
+    gap_desemp_ham_data() |>
       ggplot(aes(x = dates, y = gap*100)) +
       geom_line(linewidth = 1, color = "blue") +
       geom_hline(yintercept = 0, color = 'red') +
-      labs(titles = "Hiato do Desemprego (%)", x = NULL, y = NULL ) +
+      labs(x = NULL, y = NULL ) +
       theme_economist()
 
   })
 
   output$plot_categ <- renderPlot({
-    categ |>
+
+    categ_data <- reactive({
+
+      categ1 <- categ |>
+        filter(dates >= input$slider_emprego)
+
+      return(categ1)
+
+    })
+
+    categ_data() |>
       ggplot(aes(x = dates)) +
       geom_line(aes(y = priv_clt, color = "priv_clt"), linewidth = 1) +
       geom_line(aes(y = priv_s_clt, color = "priv_s_clt"), linewidth = 1) +
@@ -796,13 +871,23 @@ server <- function(input, output){
       geom_line(aes(y = empregador, color = "empregador"), linewidth = 1) +
       geom_line(aes(y = auton, color = "auton"), linewidth = 1) +
       geom_line(aes(y = fam, color = "fam"), linewidth = 1) +
-      labs(titles = "Evolução Categorias do Trabalho (%)", x = NULL, y = NULL ) +
+      labs(x = NULL, y = NULL, color =NULL) +
       theme_economist()
 
   })
 
   output$plot_rend_categ <- renderPlot({
-    r_categ |>
+
+    r_categ_data <- reactive({
+
+      r_categ1 <- r_categ |>
+        filter(dates >= input$slider_emprego)
+
+      return(r_categ1)
+
+    })
+
+    r_categ_data() |>
       ggplot(aes(x = dates)) +
       geom_line(aes(y = r_priv_clt, color = "r_priv_clt"), linewidth = 1) +
       geom_line(aes(y = r_priv_s_clt, color = "r_priv_s_clt"), linewidth = 1) +
@@ -810,73 +895,123 @@ server <- function(input, output){
       geom_line(aes(y = r_public, color = "r_public"), linewidth = 1) +
       geom_line(aes(y = r_empregador, color = "r_empregador"), linewidth = 1) +
       geom_line(aes(y = r_auton, color = "r_auton"), linewidth = 1) +
-      labs(titles = "Evolução Rendimento Categorias do Trabalho R$", x = NULL, y = NULL ) +
+      labs(x = NULL, y = NULL, color = NULL) +
       theme_economist()
 
   })
 
   output$plot_caged <- renderPlot({
 
-    caged |>
+    caged_data <- reactive({
+
+      caged1 <- caged |>
+        filter(date >= input$slider_emprego)
+
+      return(caged1)
+
+    })
+
+    caged_data() |>
       ggplot(aes(x = date, y = value)) +
       geom_line(linewidth = 1.3) +
-      labs(x = NULL, y = NULL, title = "Saldo Caged") +
+      labs(x = NULL, y = NULL) +
       theme_economist()
 
   })
 
   output$plot_ipca_nucleos <- renderPlot({
 
-    ipca_line <- ipca_nucleos_tidy |>
-      filter(name == "ipca" & date > "2022-01-01")
+    ipca_nucleos_tidy_data <- reactive({
 
-    ipca_nucleos_tidy |>
-      filter(date > "2022-01-01") |>
+      ipca_nucleos_tidy1 <- ipca_nucleos_tidy |>
+        filter(date >= input$slider_inf)
+
+      return(ipca_nucleos_tidy1)
+
+    })
+
+    ipca_nucleos_tidy_data() |>
       ggplot(aes(x = date, y = value, color = name)) +
       geom_line() +
-      geom_line(data = ipca_line, aes(x = date, y = value), linewidth = .9) +
-      labs(title = "IPCA e Núcleos Acompanhados", x = NULL, y = NULL, color = NULL) +
+      labs(x = NULL, y = NULL, color = NULL) +
       theme_economist()
   })
 
   output$plot_ipca_desag <- renderPlot({
 
-    ipca_desag_tidy |>
-      filter(date > "2010-01-01") |>
+
+    ipca_desag_tidy_data <- reactive({
+
+      ipca_desag_tidy1 <- ipca_desag_tidy |>
+        filter(date >= input$slider_inf)
+
+      return(ipca_desag_tidy1)
+
+    })
+
+    ipca_desag_tidy_data() |>
       ggplot(aes(x = date, y = value, color = name)) +
       geom_line() +
-      geom_smooth(data = filter(ipca_desag_tidy, ipca_desag_tidy$date > Sys.Date() - 712), method = "lm", formula = y ~ x, color = "brown") +
+      geom_smooth() +
       facet_wrap(ncol = 2, vars(name), scales = "free") +
       labs(x = NULL, y = NULL, color = NULL) +
       theme_economist()
   })
 
   output$plot_ipca_acum <- renderPlot({
-    ipca_acum |>
-      filter(`year(date)` > "2000-01-01") |>
+
+    ipca_acum_data <- reactive({
+
+      ipca_acum1 <- ipca_acum |>
+        filter(`year(date)` >= year(input$slider_inf))
+
+      return(ipca_acum1)
+
+    })
+
+    ipca_acum_data() |>
       ggplot(aes(x = `year(date)`, y = annual)) +
       geom_line(linewidth = 1, color = "darkblue") +
-      labs(title = "IPCA Acumulado no Ano", x = NULL, y = NULL) +
+      labs(x = NULL, y = NULL) +
       theme_economist()
   })
 
   output$plot_ipca_inercia <- renderPlot({
 
-    inercia |>
+    inercia_data <- reactive({
+
+      inercia1 <- inercia |>
+        filter(date >= input$slider_inf)
+
+      return(inercia1)
+
+    })
+
+    inercia_data() |>
       ggplot(aes(x = date)) +
       geom_ribbon(aes(ymin = ic1, ymax = ic2)) +
       geom_line(aes(y = ar1), linewidth = 1, color = "grey70") +
       geom_hline(aes(yintercept = mean(ar1)), color = "red") +
-      labs(title = "Inércia IPCA", x = NULL, y = NULL) +
+      labs(x = NULL, y = NULL) +
       theme_economist()
   })
 
   output$plot_ipca_difu <- renderPlot({
-    ipca_difu |>
+
+    ipca_difu_data <- reactive({
+
+      ipca_difu1 <- ipca_difu |>
+        filter(dates >= input$slider_inf)
+
+      return(ipca_difu1)
+
+    })
+
+    ipca_difu_data() |>
       ggplot(aes(x = dates, y = diffusion)) +
       geom_line(linewidth = 1, color = "gray35") +
       geom_hline(aes(yintercept = mean(diffusion)), color = "red") +
-      labs(title = "Índice de Difusão", x = NULL, y = NULL) +
+      labs(x = NULL, y = NULL) +
       theme_economist()
   })
 

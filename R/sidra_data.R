@@ -107,5 +107,5 @@ sidra_data <- function(){
 }
 
 # Put argument to save or not
-# saveRDS(sidra, 'Data/sidra.rds')
-# readRDS()
+# devtools::load_all(); sidra <- sidra_data(); saveRDS(sidra, 'Data/sidra.rds')
+

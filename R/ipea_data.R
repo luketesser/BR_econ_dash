@@ -24,4 +24,4 @@ ipea_data <- function(){
 
 }
 
-# saveRDS(ipea, 'Data/ipea.rds')
+# devtools::load_all(); ipea <- ipea_data() ;saveRDS(ipea, 'Data/ipea.rds')
