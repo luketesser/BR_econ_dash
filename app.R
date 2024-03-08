@@ -397,7 +397,10 @@ ui <- dashboardPage(
 
       sliderInput(inputId = "slider_atividade", label = "Atividade", min = base::as.Date("1996-01-02"), max = base::as.Date(ymd), value =  base::as.Date("2015-01-01")),
       sliderInput(inputId = "slider_emprego", label = "Emprego", min = base::as.Date("2012-01-02"), max = base::as.Date(ymd), value =  base::as.Date("2015-01-01")),
-      sliderInput(inputId = "slider_inf", label = "Inflação",  min = base::as.Date("1996-01-02"), max = Sys.Date(), value =  base::as.Date("2015-01-01"))
+      sliderInput(inputId = "slider_inf", label = "Inflação",  min = base::as.Date("1996-01-02"), max = Sys.Date(), value =  base::as.Date("2015-01-01")),
+      sliderInput(inputId = "slider_mon", label = "Monetária", min = base::as.Date("1996-01-02"), max = Sys.Date(), value =  base::as.Date("2015-01-01")),
+      sliderInput(inputId = "slider_fisc", label = "Fiscal", min = base::as.Date("2004-01-02"), max = Sys.Date(), value =  base::as.Date("2015-01-01")),
+      sliderInput(inputId = "slider_ext", label = "Externo", min = base::as.Date("1985-01-02"), max = Sys.Date(), value =  base::as.Date("2015-01-01"))
     )
   ),
 
@@ -972,6 +975,8 @@ server <- function(input, output){
     ipca_acum_data() |>
       ggplot(aes(x = `year(date)`, y = annual)) +
       geom_line(linewidth = 1, color = "darkblue") +
+      geom_point(color = "red", size = 2) +
+      geom_text(aes(label = round(annual, 2)), vjust = -0.5, hjust = -0.5, color = "black")  +
       labs(x = NULL, y = NULL) +
       theme_economist()
   })
@@ -1020,7 +1025,7 @@ server <- function(input, output){
       filter(Data > Sys.Date() - 180 & baseCalculo == 0) |>
       ggplot(aes(x = Data, y = Mediana, color = DataReferencia)) +
       geom_line(linewidth = 1) +
-      labs(title = "Expectativas IPCA (Mediana)", x = NULL, y = NULL, color = NULL) +
+      labs(x = NULL, y = NULL, color = NULL) +
       theme_economist()
   })
 
@@ -1029,7 +1034,7 @@ server <- function(input, output){
       filter(Data > Sys.Date() - 180 & tipoCalculo == "M") |>
       ggplot(aes(x = Data, y = Mediana, color = DataReferencia)) +
       geom_line(linewidth = 1) +
-      labs(title = "Expectativas IPCA Top 5 (Mediana)", x = NULL, y = NULL, color = NULL) +
+      labs(x = NULL, y = NULL, color = NULL) +
       theme_economist()
   })
 
@@ -1046,7 +1051,16 @@ server <- function(input, output){
 
   output$plot_selic <- renderPlot({
 
-    bc$selic$meta |>
+    selic_meta_data <- reactive({
+
+      selic_meta1 <- bc$selic$meta |>
+        filter(date >= input$slider_mon)
+
+      return(selic_meta1)
+
+    })
+
+    selic_meta_data() |>
       ggplot(aes(x = date, y = meta)) +
       geom_line(linewidth = 1) +
       labs(x = NULL, y = "SELIC (%)") +
@@ -1067,8 +1081,16 @@ server <- function(input, output){
 
   output$plot_selic_diff <- renderPlot({
 
-    fed_funds |>
-      filter(date > "2006-01-01") |>
+    fed_funds_data <- reactive({
+
+      fed_funds1 <- fed_funds |>
+        filter(date >= input$slider_mon)
+
+      return(fed_funds1)
+
+    })
+
+    fed_funds_data() |>
       ggplot(aes(x = date, y = diff)) +
       geom_line(linewidth = 1) +
       geom_hline(aes(yintercept = mean(diff)), color = "red") +
@@ -1083,7 +1105,7 @@ server <- function(input, output){
       filter(type == "nominal_return") |>
       ggplot(aes(x = ref.date, y = value)) +
       geom_line(linewidth = 1.3, color = "darkgreen") +
-      labs(title = "Curva de Juros Nominal (%)", x = NULL, y = NULL) +
+      labs(x = NULL, y = NULL) +
       theme_economist()
 
   })
@@ -1094,7 +1116,7 @@ server <- function(input, output){
       filter(type == "real_return") |>
       ggplot(aes(x = ref.date, y = value)) +
       geom_line(linewidth = 1.3, color = "darkred") +
-      labs(title = "Curva de Juros Real (%)", x = NULL, y = NULL) +
+      labs(x = NULL, y = NULL) +
       theme_economist()
 
   })
@@ -1105,69 +1127,114 @@ server <- function(input, output){
       filter(type == "implicit_inflation") |>
       ggplot(aes(x = ref.date, y = value)) +
       geom_line(linewidth = 1.3, color = "grey30") +
-      labs(title = "Curva de Inflação Implícita (%)", x = NULL, y = NULL) +
+      labs(x = NULL, y = NULL) +
       theme_economist()
 
   })
 
   output$plot_prim <- renderPlot({
 
-    prim |>
-      dplyr::group_by(year(date)) |>
-      dplyr::summarise(across(c(2:7), list(mean))) |>
-      tidyr::pivot_longer(cols = c(2:7), names_to = "nivel") |>
+    prim_data <- reactive({
+
+      prim1 <- prim |>
+        dplyr::group_by(year(date)) |>
+        dplyr::summarise(across(c(2:7), list(mean))) |>
+        tidyr::pivot_longer(cols = c(2:7), names_to = "nivel") |>
+        dplyr::filter(`year(date)` >= year(input$slider_fisc))
+
+      return(prim1)
+
+    })
+
+    prim_data() |>
       ggplot(aes(x = `year(date)`, y = value, color = nivel)) +
       geom_line(linewidth = 1.3) +
-      labs(x = NULL, y = NULL, title = "NFSP Primário", color = NULL) +
+      labs(x = NULL, y = NULL, color = NULL) +
       theme_economist()
 
   })
 
   output$plot_nom <- renderPlot({
 
-    nominal |>
-      dplyr::group_by(year(date)) |>
-      dplyr::summarise(across(c(2:6), list(mean))) |>
-      tidyr::pivot_longer(cols = c(2:6), names_to = "nivel") |>
+    nominal_data <- reactive({
+
+      nominal1 <- nominal |>
+        dplyr::group_by(year(date)) |>
+        dplyr::summarise(across(c(2:6), list(mean))) |>
+        tidyr::pivot_longer(cols = c(2:6), names_to = "nivel") |>
+        dplyr::filter(`year(date)` >= year(input$slider_fisc))
+
+      return(nominal1)
+
+    })
+
+    nominal_data() |>
       ggplot(aes(x = `year(date)`, y = value, color = nivel)) +
       geom_line(linewidth = 1.3) +
-      labs(x = NULL, y = NULL, title = "NFSP Nominal", color = NULL) +
+      labs(x = NULL, y = NULL, color = NULL) +
       theme_economist()
 
   })
 
   output$plot_juros <- renderPlot({
 
-    juros |>
-      dplyr::group_by(year(date)) |>
-      dplyr::summarise(across(c(2:6), list(mean))) |>
-      tidyr::pivot_longer(cols = c(2:6), names_to = "nivel") |>
+    juros_data <- reactive({
+
+      juros1 <- juros |>
+        dplyr::group_by(year(date)) |>
+        dplyr::summarise(across(c(2:6), list(mean))) |>
+        tidyr::pivot_longer(cols = c(2:6), names_to = "nivel") |>
+        dplyr::filter(`year(date)` >= year(input$slider_fisc))
+
+      return(juros1)
+
+    })
+
+    juros_data() |>
       ggplot(aes(x = `year(date)`, y = value, color = nivel)) +
       geom_line(linewidth = 1.3) +
-      labs(x = NULL, y = NULL, title = "NFSP Nominal", color = NULL) +
+      labs(x = NULL, y = NULL, color = NULL) +
       theme_economist()
 
   })
 
   output$plot_div_pib <- renderPlot({
 
-    bc$fiscal$div_pib |>
+    div_pib_data <- reactive({
+
+      div_pib1 <- bc$fiscal$div_pib |>
+        filter(date >= input$slider_fisc)
+
+      return(div_pib1)
+
+    })
+
+    div_pib_data() |>
       filter(!is.na(div_pib)) |>
       ggplot(aes(x = date, y = div_pib)) +
       geom_line(linewidth = 1.3) +
-      labs(x = NULL, y = "(%)", title = "Razão Dívida Bruta PIB") +
+      labs(x = NULL, y = "(%)") +
       theme_economist()
 
   })
 
   output$plot_ptax <- renderPlot({
 
-    bc$cambio$ptax_usd |>
-      right_join(bc$cambio$ptax_eur) |>
-      tidyr::pivot_longer(cols = c(2:3), names_to = "ptax") |>
+    ptax_data <- reactive({
+
+      ptax1 <-  bc$cambio$ptax_usd |>
+        dplyr::right_join(bc$cambio$ptax_eur) |>
+        tidyr::pivot_longer(cols = c(2:3), names_to = "ptax") |>
+        dplyr::filter(date >= input$slider_ext)
+
+      return(ptax1)
+
+    })
+
+    ptax_data() |>
       ggplot(aes(x = date, y = value, color = ptax)) +
       geom_line(linewidth = 1.3) +
-      labs(x = NULL, y = NULL, color = NULL, title = "Taxa de Câmbio") +
+      labs(x = NULL, y = NULL, color = NULL) +
       theme_economist()
 
   })
