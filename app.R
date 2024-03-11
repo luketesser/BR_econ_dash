@@ -23,6 +23,7 @@ library(bizdays)
 library(alphavantager)
 # library(quantmod)
 library(scales)
+library(tidyquant)
 # source("R/sidra_data.R")
 # source("R/rbcb_data.R")
 
@@ -213,7 +214,8 @@ r_auton <- sidra$pnad3 |>
 r_categ <- tibble(dates = pnad_dates$date, rend = rend$Valor, r_priv_clt = r_priv_clt$Valor, r_priv_s_clt = r_priv_s_clt$Valor,
                   r_domest = r_domest$Valor, r_public = r_public$Valor, r_empregador = r_empregador$Valor, r_auton = r_auton$Valor)
 
-caged <- ipea$caged
+caged <- ipea$caged |>
+  mutate(var = RETURN(value, n = 12)*100)
 
 # IPCA
 ipca_nucleos <- tibble(date = filter(bc$ipca$ipca, bc$ipca$ipca$date > "2000-01-01")$date,
@@ -345,6 +347,8 @@ yc_us <- avg
 
 
 
+
+
 # Application UI ---------------------------------------------------------------
 
 ui <- dashboardPage(
@@ -438,7 +442,7 @@ ui <- dashboardPage(
           box(plotOutput("plot_uci"),  title = "Utilização da Capacidade Intalada (%)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
           box(plotOutput("plot_pmc"),  title = "PMC - Delta (%)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
           box(plotOutput("plot_pim"),  title = "PIM - Delta (%)", collapsible = TRUE, collapsed = TRUE, solidHeader = TRUE, status = "primary"),
-          box(plotOutput("plot_expec"), title = "Mediana Expectativa Focus", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          box(plotOutput("plot_expec"), title = "Mediana Expectativa Focus - PIB", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
 
       ),
@@ -453,7 +457,7 @@ ui <- dashboardPage(
           infoBox(title = "PO (População Ocupada)", value = number(last(pon$Valor), big.mark = ".", decimal.mark = ","), icon = icon("briefcase")),
           infoBox(title = "PD (População Desocupada)", value = number(last(pdn$Valor), big.mark = ".", decimal.mark = ","), icon = icon("person-praying")),
           infoBox(title = "Taxa de Desemprego % (PD/PEA)", value = number(last(desemp$tx_desemp)*100, accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("chart-column")),
-          # infoBox(title = "", value = round(last(), 2))
+          infoBox(title = "Variação Interanual Saldo Caged", value = number(last(caged$var)*100, accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("chart-column"))
         ),
 
         fluidRow(
@@ -463,7 +467,7 @@ ui <- dashboardPage(
           box(plotOutput("plot_gap_desemp"), title = "Hiato do Desemprego (%)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
           box(plotOutput("plot_categ"), title = "Evolução Categorias de Emprego (%)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
           box(plotOutput("plot_rend_categ"), title = "Evolução Rendimento Categorias de Emprego R$", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          box(plotOutput("plot_caged"), title = "Caged Saldo", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          box(plotOutput("plot_caged"), title = "Caged saldo e variação mesmo mês ano passado", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
 
       ),
@@ -546,7 +550,12 @@ ui <- dashboardPage(
 
         fluidRow(
           box(plotOutput("plot_ptax"), title = " PTAX BRL/USD e BRL/EUR", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          box(plotOutput("plot_yc_us"), title = "Curva de Juros Nominal EUA", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          box(plotOutput("plot_yc_us"), title = "Curva de Juros Nominal EUA", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_bp"), title = "Balança de Pagamentos",  collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_tc_pib"), title = "Saldo em Transações Correntes/PIB (%)",  collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_ied"), title = "Investimento Estrangeiro Direto/PIB (%)",  collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_reserv"), title = "Reservas dólar",  collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+
         )
 
       )
@@ -916,7 +925,8 @@ server <- function(input, output){
 
     caged_data() |>
       ggplot(aes(x = date, y = value)) +
-      geom_line(linewidth = 1.3) +
+      geom_col() +
+      geom_text(aes(label = number(var*100, accuracy = 0.1, big.mark = ".", decimal.mark = ",", suffix = "%")), color = "red", vjust = 1, size = 3) +
       labs(x = NULL, y = NULL) +
       theme_economist()
 
@@ -1252,7 +1262,80 @@ server <- function(input, output){
 
   })
 
+  output$plot_bp <- renderPlot({
 
+    bp_data <- reactive({
+
+      bp1 <- bc$bp$tc |>
+        dplyr::left_join(bc$bp$k) |>
+        tidyr::pivot_longer(cols = c(2:3), names_to = "name") |>
+        dplyr::filter(date >= input$slider_ext)
+
+      return(bp1)
+
+    })
+
+    bp_data() |>
+      ggplot(aes(x = date, y = value, color = name)) +
+      geom_col() +
+      labs(color = NULL) +
+      theme_economist()
+
+  })
+
+  output$plot_tc_pib <- renderPlot({
+
+    tc_pib_data <- reactive({
+
+      tc_pib1 <- bc$bp$tc_pib |>
+        filter(date >= input$slider_ext)
+
+      return(tc_pib1)
+
+    })
+
+    tc_pib_data() |>
+      ggplot(aes(x = date, y = tc_pib)) +
+      geom_col() +
+      theme_economist()
+
+  })
+
+  output$plot_ied <- renderPlot({
+
+    ied_data <- reactive({
+
+      ied1 <- bc$bp$ied_pib |>
+        filter(date >= input$slider_ext)
+
+      return(ied1)
+
+    })
+
+    ied_data() |>
+      ggplot(aes(x = date, y = ied_pib)) +
+      geom_col() +
+      theme_economist()
+
+  })
+
+  output$plot_reserv <- renderPlot({
+
+    reserv_data <- reactive({
+
+      reserv1 <- bc$bp$reserv |>
+        filter(date >= input$slider_ext)
+
+      return(reserv1)
+
+    })
+
+    reserv_data() |>
+      ggplot(aes(x = date, y = reserv)) +
+      geom_area() +
+      theme_economist()
+
+  })
 
 }# End of Server
 
