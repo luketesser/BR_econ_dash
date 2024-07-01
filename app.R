@@ -37,9 +37,9 @@ ipea <- readRDS('Data/ipea.rds')
 
 avg <- readRDS('Data/avg.rds')
 
-ymd <- "2023-12-01" # last trimester of available data (CNT). Must automatize.
+ymd <- "2024-03-01" # last trimester of available data (CNT). Must automatize.
 
-ymd_pnad <- "2023-12-01"
+ymd_pnad <- "2024-03-01"
 
 # Values for Info boxes ------------------------------------------------
 
@@ -269,6 +269,60 @@ colnames(sd) <- c('AR(1)', 'Intercepto')
 inercia <- tibble(date = seq.Date(from = dplyr::nth(ipca_nucleos$date, janela + 1), to = dplyr::last(ipca_nucleos$date), by = "month"),
                   ic1 = coefs[,1] - sd[,1], ar1 = coefs[,1], ic2 = coefs[,1] + sd[,1])
 
+# Pass Through
+## Criando matrizes que guardarão coeficientes e desvios-padrões
+
+# janela <- 48 # número de meses da janela
+#
+# cambio_m <- bc$cambio$ptax_usd |>
+#   dplyr::group_by(year_month = format(date, "%Y-%m")) |>
+#   dplyr::slice(dplyr::n()) |>
+#   dplyr::filter(date > dplyr::first(ipca_nucleos$date)) |>
+#   dplyr::select(3, 2) |>
+#   dplyr::rename(date = year_month)
+#
+# ibc_pass <- ibc |>
+#   dplyr::mutate(date = lubridate::as_date(date)) |>
+#   dplyr::mutate(year_month = format(date, "%Y-%m")) |>
+#   dplyr::mutate(date = year_month) |>
+#   dplyr::select(date, ibcbr)
+#
+#
+# dados_pass <- dplyr::full_join(dplyr::bind_cols(date = format(ipca_nucleos$date, "%Y-%m"), ipca = ipca_nucleos$ipca), cambio_m, by = dplyr::join_by(date)) |>
+#   dplyr::full_join(ibc_pass, dplyr::join_by(date)) |>
+#   dplyr::filter(!is.na(ipca)) |>
+#   dplyr::filter(!is.na(ptax_usd)) |>
+#   dplyr::filter(!is.na(ibcbr)) |>
+#   dplyr::mutate(ipca = tidyquant::RETURN(ipca),
+#                         ptax_usd = tidyquant::RETURN(ptax_usd),
+#                         ibcbr = tidyquant::RETURN(ibcbr)) |>
+#   dplyr::filter(!is.na(ipca)) |>
+#   dplyr::filter(!is.na(ptax_usd)) |>
+#   dplyr::filter(!is.na(ibcbr))
+#   # dplyr::mutate(ipca = dplyr::case_when(ipca <= 0 ~ 10^-20, TRUE ~ ipca))
+#
+# coefs <- matrix(NA, ncol = 1, nrow = length(dados_pass$date) - janela)
+# sd <- matrix(NA, ncol = 1, nrow = length(dados_pass$date) - janela)
+#
+# # Loop
+#
+# for (i in 1:nrow(coefs)) {
+#
+#   pass_ecm <- urca::ca.jo(dados_pass[((1 + i - 1):(janela + i - 1)), 2:3], c("eigen"), ecdet = c("const"), K = 2, spec = ("transitory"), season = NULL, dumvar = NULL)
+#
+#   pass_ecm_ols <- urca::cajools(pass_ecm)
+#
+#   coefs[i,] <- stats::coef(pass_ecm_ols)[6]
+#
+#   sd[i,] <- lmtest::coeftest(pass_ecm_ols)[30]
+#
+# }
+#
+# pass_through <- tibble(date = seq.Date(from = dplyr::nth(as.Date(paste0(dados_pass$date, "-01")), janela + 1), to = dplyr::last(as.Date(paste0(dados_pass$date, "-01"))), by = "month"),
+#                   ic1 = coefs[, 1] - sd[, 1], pass_through = coefs[, 1], ic2 = coefs[, 1] + sd[, 1])
+
+
+
 ipca_desag <- tibble(date = filter(bc$ipca_desag$al, date > "2000-01-01")$date,
                      aliment = filter(bc$ipca_desag$al, date > "2000-01-01")$al,
                      comun =  filter(bc$ipca_desag$comun, date > "2000-01-01")$comun,
@@ -488,6 +542,7 @@ ui <- dashboardPage(
           infoBox(title = "Mediana Expectativas 2026", value = number(dplyr::last(expec_ipca_2026$Mediana), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("eye-low-vision")),
           infoBox(title = "Mediana Expectativas 2024 Top 5 M", value = number(dplyr::last(expec_ipca_top5_2024$Mediana), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("eye-low-vision")),
           infoBox(title = "Inflação Implícita 1 ano (%)", value = number(filter(yc_anbima, type == "implicit_inflation" & n.biz.days == 252)$value, accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("eye-low-vision"))
+          # infoBox(title = "Pass Through", value = number(dplyr::last(pass_through$pass_through)*100, accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("fill-drip"))
 
         ),
 
@@ -499,7 +554,8 @@ ui <- dashboardPage(
           box(plotOutput("plot_ipca_acum"), title = "IPCA Acumulado no Ano", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
           box(plotOutput("plot_ipca_expec"), title = "Expectativas IPCA (Mediana)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
           box(plotOutput("plot_ipca_expec_top5"), title = "Expectativas IPCA Top 5 (Mediana)", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
-          box(plotOutput("plot_ipca_expec_median_mean"), title = "Diferença Mediana e Média expectativas 2024", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
+          box(plotOutput("plot_ipca_expec_median_mean"), title = "Diferença Média - Mediana expectativas 2024", collapsible = T, collapsed = T, solidHeader = T, status = "primary"),
+          box(plotOutput("plot_ipca_expec_median_mean_25"), title = "Diferença Média - Mediana expectativas 2025", collapsible = T, collapsed = T, solidHeader = T, status = "primary")
         )
       ),
       # Monetário
@@ -510,7 +566,9 @@ ui <- dashboardPage(
           infoBox(title = "Focus 2024", value = number(last(expec_selic_2024$Mediana), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("dollar-sign")),
           infoBox(title = "Focus 2025", value = number(last(expec_selic_2025$Mediana), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("dollar-sign")),
           infoBox(title = "Focus 2026", value = number(last(expec_selic_2026$Mediana), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("dollar-sign")),
-          infoBox(title = "Diferencial de Juros BR - EUA", value = number(last(fed_funds$diff), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("arrows-left-right-to-line"))
+          infoBox(title = "Diferencial de Juros BR - EUA", value = number(last(fed_funds$diff), accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("arrows-left-right-to-line")),
+          infoBox(title = "Regra de Taylor", value = number(last(ipca_yearly$yearly) + .5*last(gap_avg$average) + .5*(last(ipca_yearly$yearly) - filter(yc_anbima, type == "real_return" & n.biz.days == 2520)$value) + filter(yc_anbima, type == "real_return" & n.biz.days == 2520)$value,
+                                                            accuracy = 0.01, big.mark = ".", decimal.mark = ",", suffix = "%"), icon = icon("arrows-left-right-to-line"))
 
         ),
 
@@ -1030,6 +1088,27 @@ server <- function(input, output){
       theme_economist()
   })
 
+  # output$plot_pass_through <- renderPlot({
+  #
+  #   pass_through_data <- reactive({
+  #
+  #     pass <- pass_through |>
+  #       filter(date >= input$slider_inf)
+  #
+  #     return(pass)
+  #
+  #   })
+  #
+  #   pass_through_data() |>
+  #     ggplot(aes(x = date)) +
+  #     geom_ribbon(aes(ymin = ic1, ymax = ic2)) +
+  #     geom_line(aes(y = pass_through), linewidth = 1, color = "grey70") +
+  #     geom_hline(aes(yintercept = mean(pass_through)), color = "red") +
+  #     labs(x = NULL, y = NULL) +
+  #     theme_economist()
+  #
+  # })
+
   output$plot_ipca_expec <- renderPlot({
     bc$expec_ipca |>
       filter(Data > Sys.Date() - 180 & baseCalculo == 0) |>
@@ -1052,7 +1131,18 @@ server <- function(input, output){
 
     expec_ipca_2024 |>
       filter(baseCalculo == 0) |>
-      ggplot(aes(x = Data, y = Mediana - Media)) +
+      ggplot(aes(x = Data, y = Media - Mediana)) +
+      geom_line(linewidth = 1.3) +
+      labs(x = NULL, y = NULL, title = NULL) +
+      theme_economist()
+
+  })
+
+  output$plot_ipca_expec_median_mean_25 <- renderPlot({
+
+    expec_ipca_2025 |>
+      filter(baseCalculo == 0) |>
+      ggplot(aes(x = Data, y = Media - Mediana )) +
       geom_line(linewidth = 1.3) +
       labs(x = NULL, y = NULL, title = NULL) +
       theme_economist()

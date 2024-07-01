@@ -27,3 +27,4 @@ avg_get <- function(){
 }
 
 # devtools::load_all(); avg <- avg_get(); saveRDS(avg, 'Data/avg.rds')
+

@@ -66,7 +66,8 @@ rbcb_data <- function(){
 
   bp <- rbcb::get_series(c(tc = 22701, k = 22863, reserv = 3546, tc_pib = 23079, ied_pib = 23080))
 
-  results <- list(ibc = ibc, uci = uci, ipca = ipca, ipca_desag = ipca_desag, expec_pib = expec_pib, expec_agro = expec_agro,
+  results <- list(ibc = ibc, uci = uci, ipca = ipca, ipca_desag = ipca_desag,
+                 expec_pib = expec_pib, expec_agro = expec_agro,
                  expec_gov = expec_gov, expec_c = expec_c, expec_exp = expec_exp,
                  expec_imp = expec_imp, expec_fbcf = expec_fbcf, expec_ind = expec_ind,
                  expec_serv = expec_serv, expec_ipca = expec_ipca, expec_ipca_top5 = expec_ipca_top5, selic = selic, expec_selic = expec_selic,
