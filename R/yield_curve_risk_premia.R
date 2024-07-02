@@ -1,8 +1,21 @@
-get_yield_curve <- function(){
+#' Yield Curve Risk Premia
+#' @description
+#' Estimates automatically the implicit risk premia (moving window) in the Brazilian sovereign term structure based on the methodology suggested in the BCB Inflation report of September 2006.
+#'
+#' @param yield_spread The desired yield spread to analyse. It can be "3 months", "6 months" or "12 months".
+#' @param frequency Daily ("daily") or monthly ("monthly") average yields data.
+#' @param window Number of bussiness days in the moving window.
+#'
+#' @return A data set with the estimate intercept and regression parameter of the regression and a graph of the intercept (risk premia).
+#'
+#'
+#'
+yield_curve_risk_premia <- function(yield_spread, frequency, window){
 
   library("bizdays") # This package does not work without loading
+  library("ggplot2")
 
-  # Download Data Organize and Analyse -------------------------------------------
+  # Download Data and Organize -------------------------------------------------
 
   url <- "https://api.data.economatica.com/1/oficial/datafeed/download/1/rJXGF3XnVxnLeyOOYc5ewkt%2F0TRueXMpOoZbz2rKDiQneLd%2F7uTyI3sFe0RsUFoviBVVzL5X4WviGYMWlEBTq%2BTxAXVkDQEnOs3Qoa2P7mc8BDn1SKNqkrCgPbB%2FGtXhmF2wzrBe9Vsi2NRWclz%2Fb%2F0uzpm4ny%2BkwbUpSC1RKy73krOIQiMuH4UZMekw8JFHJYOjIWO1HMm1JzV8AmsI%2BRCdUBLoZ62gkAUOxOgzKBepiT2alT8Qhe5QWbIz%2BV%2BUe%2BB9UOz76jeqgIwqZdVjCxxulflljCEzc9fUjdTX2%2B2%2FeSlVr2mkypLIC1dOOADGT8%2F3u1PAbigCYtGv5ago8Q%3D%3D"
 
@@ -67,6 +80,8 @@ get_yield_curve <- function(){
   curves_spline <- dates_di |>
     dplyr::bind_cols(curves_spline)
 
+  # Build dataset to run regressions -------------------------------------------
+
   reg_data <- curves_spline |>
     dplyr::mutate(delta_i_t_3  = tidyquant::RETURN(v21, n = 63),
                   delta_i_t_6  = tidyquant::RETURN(v21, n = 126),
@@ -77,7 +92,7 @@ get_yield_curve <- function(){
 
   p <- 2 # Parâmetros a serem guardados
 
-  janela <- 504 # número de dias da janela
+  janela <- window # número de dias da janela
 
   # delta_i_t_3 ~ i_t_3_1 ------------------------------------------------------
 
@@ -167,9 +182,9 @@ get_yield_curve <- function(){
                   i_t_6_1      = v126 - v21,
                   i_t_12_1     = v252 - v21)
 
-  p <- 2 # Parâmetros a serem guardados
+  p <- 2
 
-  janela <- 24 # número de dias da janela
+  janela <- janela/21
 
   # delta_i_t_3 ~ i_t_3_1 ------------------------------------------------------
 
@@ -246,53 +261,64 @@ get_yield_curve <- function(){
                              ic_i_1 = coefs_3_m[,1] - sd_3_m[,1], intercept = coefs_3_m[,1], ic_i_2 = coefs_3_m[,1] + sd_3_m[,1],
                              ic_b_1 = coefs_3_m[,2] - sd_3_m[,2], beta = coefs_3_m[,2], ic_b_2 = coefs_3_m[,2] + sd_3_m[,2])
 
+  g1 <- results1 |>
+    ggplot(aes(x = date)) +
+    geom_ribbon(aes(ymin = ic_i_1, ymax = ic_i_2)) +
+    geom_line(aes(y = intercept), linewidth = 1, color = "grey70") +
+    geom_hline(aes(yintercept = mean(intercept), color = "red")) +
+    labs(x = NULL, y = NULL, title = "Intercept delta_3_month", color = "Média")
+
+  g2 <- results2 |>
+    ggplot(aes(x = date)) +
+    geom_ribbon(aes(ymin = ic_i_1, ymax = ic_i_2)) +
+    geom_line(aes(y = intercept), linewidth = 1, color = "grey70") +
+    geom_hline(aes(yintercept = mean(intercept), color = "red")) +
+    labs(x = NULL, y = NULL, title = "Intercept delta_6_month", color = "Média")
+
+  g3 <- results3 |>
+    ggplot(aes(x = date)) +
+    geom_ribbon(aes(ymin = ic_i_1, ymax = ic_i_2)) +
+    geom_line(aes(y = intercept), linewidth = 1, color = "grey70") +
+    geom_hline(aes(yintercept = mean(intercept), color = "red")) +
+    labs(x = NULL, y = NULL, title = "Intercept delta_12_month", color = "Média")
+
+  g4 <- results1_m |>
+    ggplot(aes(x = date)) +
+    geom_ribbon(aes(ymin = ic_i_1, ymax = ic_i_2)) +
+    geom_line(aes(y = intercept), linewidth = 1, color = "grey70") +
+    geom_hline(aes(yintercept = mean(intercept), color = "red")) +
+    labs(x = NULL, y = NULL, title = "Intercept delta_3_month", color = "Média")
+
+  g5 <- results2_m |>
+    ggplot(aes(x = date)) +
+    geom_ribbon(aes(ymin = ic_i_1, ymax = ic_i_2)) +
+    geom_line(aes(y = intercept), linewidth = 1, color = "grey70") +
+    geom_hline(aes(yintercept = mean(intercept), color = "red")) +
+    labs(x = NULL, y = NULL, title = "Intercept delta_6_month", color = "Média")
+
+  g6 <- results3_m |>
+    ggplot(aes(x = date)) +
+    geom_ribbon(aes(ymin = ic_i_1, ymax = ic_i_2)) +
+    geom_line(aes(y = intercept), linewidth = 1, color = "grey70") +
+    geom_hline(aes(yintercept = mean(intercept), color = "red")) +
+    labs(x = NULL, y = NULL, title = "Intercept delta_12_month", color = "Média")
+
+
+  ifelse(yield_spread == "3 months" & frequency == "daily", return(results1, g1),
+    ifelse(yield_spread == "6 months" & frequency == "daily", return(results2, g2),
+      ifelse(yield_spread == "12 months" & frequency == "daily", return(results3, g3),
+        ifelse(yield_spread == "3 months" & frequency == "monthly", return(results1_m, g4),
+          ifelse(yield_spread == "6 months" & frequency == "monthly", return(results2_m, g5),
+           ifelse(yield_spread == "12 months" & frequency == "monthly", return(results3_m, g6),
+                NULL
+            )
+          )
+        )
+      )
+    )
+ )
+
 }
 
-results1_m |>
-ggplot(aes(x = date)) +
-  # geom_ribbon(aes(ymin = ic_i_1, ymax = ic_i_2)) +
-  geom_line(aes(y = ((1+intercept/100)^12-1)), linewidth = 1, color = "grey70") +
-  geom_hline(aes(yintercept = mean((1+intercept/100)^12-1), color = "red")) +
-  labs(x = NULL, y = NULL, title = "Intercept delta_3_month") +
-  theme_economist()
-#
-# results1_m |>
-#   ggplot(aes(x = date)) +
-#   geom_ribbon(aes(ymin = ic_b_1, ymax = ic_b_2)) +
-#   geom_line(aes(y = beta), linewidth = 1, color = "grey70") +
-#   geom_hline(aes(yintercept = mean(beta)), color = "red") +
-#   labs(x = NULL, y = NULL, title = "Beta delta_3_month") +
-#   theme_economist()
-#
-# results2_m |>
-#   ggplot(aes(x = date)) +
-#   geom_ribbon(aes(ymin = ic_i_1, ymax = ic_i_2)) +
-#   geom_line(aes(y = intercept), linewidth = 1, color = "grey70") +
-#   geom_hline(aes(yintercept = mean(intercept)), color = "red") +
-#   labs(x = NULL, y = NULL, title = "Intercept delta_6_month") +
-#   theme_economist()
-#
-# results2_m |>
-#   ggplot(aes(x = date)) +
-#   geom_ribbon(aes(ymin = ic_b_1, ymax = ic_b_2)) +
-#   geom_line(aes(y = beta), linewidth = 1, color = "grey70") +
-#   geom_hline(aes(yintercept = mean(beta)), color = "red") +
-#   labs(x = NULL, y = NULL, title = "Beta delta_6_month") +
-#   theme_economist()
-#
-# results3_m |>
-#   ggplot(aes(x = date)) +
-#   geom_ribbon(aes(ymin = ic_i_1, ymax = ic_i_2)) +
-#   geom_line(aes(y = intercept), linewidth = 1, color = "grey70") +
-#   geom_hline(aes(yintercept = mean(intercept)), color = "red") +
-#   labs(x = NULL, y = NULL, title = "Intercept delta_12_month") +
-#   theme_economist()
-#
-# results3_m |>
-#   ggplot(aes(x = date)) +
-#   geom_ribbon(aes(ymin = ic_b_1, ymax = ic_b_2)) +
-#   geom_line(aes(y = beta), linewidth = 1, color = "grey70") +
-#   geom_hline(aes(yintercept = mean(beta)), color = "red") +
-#   labs(x = NULL, y = NULL, title = "Beta delta_12_month") +
-#   theme_economist()
+
 
